@@ -1,14 +1,11 @@
 import {decideReminder} from './reminders.js';
-export const guidance = {
- edge: {title:'Exposed edge', action:'Verify the site fall-protection plan and your connection before approaching an edge.', source:'OSHA · Fall protection', url:'https://www.osha.gov/fall-protection'},
- ladder: {title:'Ladder setup', action:'Inspect rails and rungs, verify stable footing and secure placement, and maintain three points of contact.', source:'OSHA · Stairways and ladders', url:'https://www.osha.gov/stairways-ladders'},
- ppe: {title:'Protective equipment', action:'Confirm the eye, head, and other protective equipment required for this task with your supervisor.', source:'OSHA · Personal protective equipment', url:'https://www.osha.gov/personal-protective-equipment'},
- heat: {title:'Heat exposure', action:'Follow your site heat plan for water, rest, shade, and acclimatization. Watch for signs of heat illness.', source:'OSHA · Heat exposure', url:'https://www.osha.gov/heat-exposure'}
-};
+import {topics,getTask} from './tasks.js';
+export const guidance=topics;
 export function assess({task='roofing',temperature=85,wind=8,rain=false,observations=[],detections}) {
  const visionReminders=detections?detections.flatMap(decideReminder):[];
  if(detections)observations=visionReminders;
- const keys = new Set([task==='ladder'?'ladder':'edge','ppe']);
+ const definition=getTask(task)||getTask('roofing');
+ const keys = new Set(definition.topics);
  for(const observation of observations) if(guidance[observation.category]) keys.add(observation.category);
  if(temperature>=80) keys.add('heat');
  const environmental=[];
@@ -19,11 +16,13 @@ export function assess({task='roofing',temperature=85,wind=8,rain=false,observat
 
 export function buildBriefing(state){
  const result=assess(state);
- const parts=[state.mode==='demo'?'Scripted demo briefing. No footage has been analyzed.':state.mode==='model'?'Pre-task briefing from selected visual views.':'Pre-task briefing. Visual conditions have not been confirmed.'];
- parts.push(`Before ${state.task==='ladder'?'ladder access':'roofing'}, verify ${state.task==='ladder'?'ladder footing and secure placement':'your fall-protection plan and connection'}.`);
+ const parts=[state.mode==='demo'?'Scripted example briefing. No footage has been analyzed.':state.mode==='model'?'Pre-task briefing from selected visual views.':'Pre-task briefing. Visual conditions have not been confirmed.'];
+ const definition=getTask(state.task)||getTask('roofing');
+ parts.push(`Before ${definition.briefing}, ${definition.lead}.`);
  parts.push(state.weatherSource==='forecast'?'Weather context uses an hourly forecast, not on-site measurements.':'Weather conditions in this briefing are simulated, not on-site measurements.');
  if(state.temperature>=80)parts.push('Follow your site heat plan for water, rest, and shade.');
  parts.push(...result.environmental);
+ for(const item of result.guidance.filter(item=>!['edge','ladder','ppe','heat'].includes(item.key)).slice(0,2))parts.push(item.action);
  if(state.detections?.length&&state.detections.every(d=>d.quality==='insufficient'))parts.push('Visibility is insufficient. No visual hazard assessment can be made. Improve lighting and camera position.');
  parts.push(...new Set(result.visionReminders.map(r=>r.evidence)));
  parts.push('Confirm required protective equipment with your supervisor.');

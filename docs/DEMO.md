@@ -1,4 +1,4 @@
-# SiteSense: a 90-second demo
+# SiteySense: a 90-second demo
 
 ## Before presenting
 
@@ -10,7 +10,7 @@
 
 ## Key-free walkthrough (recommended now)
 
-1. Start the app and choose **Roof edge**. Say, “This local illustration has scripted observations, not a model response.” Show the timestamp and linked reminders.
+1. Start the app, expand **How it works · explore an example**, and choose **Roof edge**. Say, “This local illustration has scripted observations, not a model response.” Show the timestamp and linked reminders.
 2. Choose **Poor visibility**. Read or play the explicit inability to assess. It should not imply hazards are absent.
 3. Choose **Eye protection unclear**. Show the verification wording rather than a missing-equipment accusation.
 4. Switch to ladder access and confirm one checklist item. Move wind to 30 mph; identify it as simulated. Play the updated briefing.
@@ -19,7 +19,7 @@
 
 ## Optional live walkthrough
 
-**0–15 seconds — The problem.** “Before starting work, people need the relevant checks in one place. SiteSense combines a visual review, environmental context, and worker confirmations.”
+**0–15 seconds — The problem.** “Before starting work, people need the relevant checks in one place. SiteySense combines a visual review, environmental context, and worker confirmations.”
 
 **15–35 seconds — Show the evidence.** Upload a preapproved clip, confirm upload permission, and run agentic review. “Gemini navigates selected moments. Our application validates its structured observations and chooses reminders from fixed wording.” If the call takes longer, demonstrate the checklist while waiting.
 
@@ -33,7 +33,7 @@
 
 ## If the API or network fails
 
-Say what failed. Select **Load demo**, explain that its observations are scripted, and continue with weather simulation, the checklist, speech and report export. Select **Try poor visibility** to demonstrate abstention. Never describe this fallback as a successful model detection.
+Say what failed. Select **Explore an example**, explain that its observations are scripted, and continue with weather simulation, the checklist, speech and report export. Select **Try poor visibility** to demonstrate abstention. Never describe this fallback as a successful model detection.
 
 ## Claims and next steps
 
@@ -42,3 +42,11 @@ Say what failed. Select **Load demo**, explain that its observations are scripte
 - Short clips can be faster in quick mode. Do not claim measured savings without a comparison.
 - The competition's release-date requirement still needs a dated primary announcement. Cookbook retrieval date is not release date.
 - No accuracy or injury-prevention results have been measured. Use `evaluation.csv` for consented clips with human reference labels. Include poor light, occlusion, no visible worker, negatives and ambiguous views. Keep skipped, failed and abstained results separate.
+
+## Show the new daily workflow
+
+Choose a task such as scaffold work or cutting/drilling. Explain that the user chose this task; the camera did not recognize it. Show its linked checklist and expand **Source and scope** to make the pending source review explicit. Avoid presenting these general prompts as verified OSHA legal requirements.
+
+Use **Start a fresh review** before a new job, or **Conditions changed? Recheck** to clear old confirmations and visual evidence while retaining an unsaved note. Add a brief non-sensitive supervisor question, save the review, and open it from the notebook. Old roofing/ladder confirmations and earlier saved reviews remain accessible.
+
+Open the live camera from the top of the workspace. Show the local-only status, capture a frame and explain that it has not been analyzed. Never present live preview as AI monitoring.

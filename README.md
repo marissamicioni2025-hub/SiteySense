@@ -1,10 +1,10 @@
-# SiteSense AI — Your second set of eyes
+# SiteySense AI — Your second set of eyes
 
 A phone-friendly pre-task construction review: record a short clip, review selected moments with Gemini, combine structured detections with sourced reminders and weather context, and hear one briefing.
 
 ## Phone and desktop app
 
-SiteSense is now an installable PWA with a responsive desktop workspace, mobile navigation, installation help, an offline app shell, and a device-local review notebook. Use the **Install app** button on a supported HTTPS deployment. Read [phone/desktop setup and deployment](docs/PHONE-AND-DESKTOP.md). No public deployment has been performed.
+SiteySense is now an installable PWA with a responsive desktop workspace, mobile navigation, installation help, an offline app shell, and a device-local review notebook. Use the **Install app** button on a supported HTTPS deployment. Read [phone/desktop setup and deployment](docs/PHONE-AND-DESKTOP.md). The user’s Render URL is https://siteysense.onrender.com. Its live version could not be inspected from this environment because network requests were blocked; a GitHub push is not proof that Render deployed it.
 
 ## Start here
 
@@ -16,7 +16,7 @@ npm ci --ignore-scripts --cache /tmp/sitesense-npm-cache
 npm start
 ```
 
-The app runs on port 3000. `PORT` overrides it; `npm run dev` enables server watch mode. Demo mode, task checklists, simulations, and browser speech work without a model key. No build step is required.
+The app runs on port 3000. `PORT` overrides it; `npm run dev` enables server watch mode. Example walkthroughs, live camera preview, task checklists, simulations, and browser speech work without a model key. No build step is required.
 
 For real analysis, copy `.env.example` to `.env` and set your Gemini API key locally, or inject `GEMINI_API_KEY` securely through your runtime. `GOOGLE_API_KEY` is also recognized. Never paste keys into chat or commit `.env`. Restart after changing settings.
 
@@ -30,7 +30,7 @@ Model defaults are configurable and do not establish access in your account. A r
 
 ## Start without a key
 
-Choose one of the three **scripted demo** cards: Roof edge, Poor visibility, or Eye protection unclear. No API access is needed. Each is a local illustration with a timestamped scenario, not analyzed footage. The same fixed reminder rules handle demo and model detections. Poor visibility explicitly abstains; unclear equipment stays unknown.
+The app opens in your workspace, without example detections. Choose a task and open the live camera, or expand **How it works · explore an example** and choose a clearly scripted example: Roof edge, Poor visibility, or Eye protection unclear. No API access is needed. Each is a local illustration with a timestamped scenario, not analyzed footage. The same fixed reminder rules handle demo and model detections. Poor visibility explicitly abstains; unclear equipment stays unknown.
 
 Choose a task, confirm your checks, change simulated conditions, and play or save the briefing. Selecting a real upload clears the scenario results. When automatic analysis is unavailable, the app keeps the upload unanalyzed and points back to the demo; it never silently assigns scripted detections to your footage.
 
@@ -44,7 +44,7 @@ Run `npm run test:camera` after installing the Playwright browser to repeat prev
 
 ## The experience
 
-1. Choose roofing or ladder access and verify the task checklist.
+1. Choose one of ten construction task groups and verify the task checklist. This selection is user-provided context, not camera task recognition.
 2. Use **Record a clip**, **Take a photo**, or **Upload footage**. Recording uses the environment-facing camera where available, excludes microphone audio, and stops at 30 seconds. In-browser recording requires a supported browser and a secure HTTPS context (localhost is also permitted). On a phone, plain HTTP over a laptop's LAN address usually cannot use in-browser camera recording; use native camera/file upload or serve through HTTPS.
 3. Preview locally. Confirm permission to send each new upload to Google, then select **Analyze upload**.
 4. Agentic mode sends the clip to Gemini's Interactions API with `processing: "agentic"`. The model selects relevant moments. Quick check sends four JPEG frames instead; photo mode sends one JPEG.
@@ -57,11 +57,11 @@ Uploads support JPEG, PNG, WebP, MP4 and WebM. All files must be under 40 MB; ag
 
 ## Grounding and uncertainty
 
-Gemini returns only structured, timestamped `edgeProximity: {confidence, nearEdge}` and `ppeEye: {confidence, missingEyeProtection}` detections plus frame quality. Unknown is null. Out-of-view equipment is not evidence of absence. Ladder reminders are task-based; ladder detection has not been implemented.
+Gemini returns only structured, timestamped `edgeProximity: {confidence, nearEdge}` and `ppeEye: {confidence, missingEyeProtection}` detections plus frame quality. Unknown is null. Out-of-view equipment is not evidence of absence. All ten task checklists are user-selected. Visual checks remain limited to edge proximity and eye-protection visibility; no new task detectors have been added.
 
 The server validates types, confidence ranges, unique nonnegative timestamps and video bounds. It discards extra model fields, including model-authored advice. Poor quality forces unknown detections. `decideReminder()` chooses fixed verification wording with a prototype threshold of 0.8; model confidence is self-reported and is not measured accuracy or accident probability. Confident negative results never remove the task checklist or produce an all-clear.
 
-Task reminders link to OSHA fall protection, ladders, PPE and heat topic pages. They are short summaries, not a full compliance checklist. Wind/temperature review thresholds are prototype rules, not regulatory stop-work limits. Follow current site procedures, training and supervisor instructions.
+Task reminders link to official OSHA topic pages for falls, ladders, scaffolds, PPE, heat, tools, silica/dust, noise, handling, excavations, vehicles, electrical hazards and housekeeping. Requests to all 15 referenced pages were blocked with proxy HTTP 403 during source checks on October 24, 2026. Review dates therefore remain null; the UI shows source review pending. These are conservative general verification prompts, not a freshly verified regulatory checklist or legal requirements. Wind/temperature review thresholds are prototype rules, not regulatory stop-work limits. Follow current site procedures, training and supervisor instructions.
 
 NWS returns an **hourly forecast**, not on-site measurements. Temperature is not heat index; forecast wind is not measured gusts. Rain is inferred from the summary, not a wet-surface sensor. Changing sliders switches back to simulation. Failed weather requests retain the prior conditions and display the failure.
 
@@ -104,4 +104,22 @@ If Chromium is already installed, set `CHROMIUM_PATH` to its executable instead 
 
 The browser smoke test is credential-free and does not call a live model. It covers all three scenarios, briefings, upload isolation, no-key guidance, report privacy and persistence, offline reload, mobile/desktop layout, and install help. `npm test` separately checks structured provider request/response handling with mocks. Browser automation, mocked speech, and fake-camera tests do not establish physical-device camera compatibility or real spoken audio quality.
 
-The files are in this workspace at `/workspace/constuction`. No public app deployment has been performed. Chat ZIP downloads are not supported in this environment; previously generated artifact links should not be relied on. To download from GitHub, select the branch containing this project and choose Code → Download ZIP. Downloading the source does not deploy the app.
+The files are in this workspace at `/workspace/constuction`. The currently deployed Render version has not been independently verified from this workspace. Chat ZIP downloads are not supported in this environment; previously generated artifact links should not be relied on. To download from GitHub, select the branch containing this project and choose Code → Download ZIP. Downloading the source does not deploy the app.
+
+## Construction tasks and daily review
+
+The selector includes roofing, ladders, scaffolds, power tools, material handling, excavations/trenches, moving equipment, electrical awareness, heat and housekeeping. `public/tasks.js` is the shared registry for task identifiers, checklist items, topic links and source/scope metadata. `public/safety.js` uses that registry for fixed reminders and briefings; the backend accepts the same task IDs.
+
+Existing `sitesense-checks` and `sitesense-reviews-v1` storage keys intentionally remain unchanged after the SiteySense rename. Legacy numeric roofing/ladder confirmations retain their meanings and are read into stable checklist IDs. Other tasks have independent confirmations. Changing the selected task shows its prior confirmations; use **Start a fresh review** for a new job.
+
+**Start a fresh review** clears the current task’s confirmations, camera/upload, previous visual results, and unsaved note. **Conditions changed? Recheck** clears the same review evidence and confirmations but keeps the unsaved note. Other tasks and saved summaries are not deleted. An optional note stays only in memory until **Save review**, then appears in the downloaded JSON and device-local notebook. It is never included in model requests. Switching tasks clears an unsaved note; do not include sensitive information.
+
+## Finding the camera / updating Render
+
+**Open live camera** appears in the page heading and at the top of Visual assessment, above the examples and illustration. It needs HTTPS and browser camera permission, not a Gemini key. The page shows App v0.2.0; `/api/status` also exposes the app version without credentials.
+
+Render must deploy the `sitesense-app` branch. Check its latest deployment commit against GitHub. If automatic deployment did not run, choose Manual Deploy → Deploy latest commit. Changing account/deployment settings has not been performed by this update. After a successful deployment, reload the app. If an old offline shell remains open, use the update banner’s **Reload latest version**, or Install app → **Check for app updates**, then reload. An already installed app may also need to be closed and reopened. Do not clear all site data just to update if you want to preserve local reviews.
+
+The update banner appears when a new service worker takes control. Cache prefix and PWA identity remain stable to preserve app identity and allow old shell cleanup; public assets use a new versioned shell. APIs and uploads are never cached.
+
+Run `npm run test:tasks` for task switching, source/scope metadata, old stored-data compatibility, note opt-in/export, fresh review/recheck and mobile/desktop checks. It requires the app to be running and a Playwright browser, just like the other browser runners.

@@ -9,8 +9,8 @@ try{
  page.on('request',request=>{if(new URL(request.url()).pathname.startsWith('/api/analyze'))analysisCalls++;});
  // No live model calls or credentials are needed by this smoke test.
  await page.route('**/api/status',route=>route.fulfill({json:{visionConfigured:false,model:'test',videoModel:'test'}}));
- await page.goto(origin);await page.getByText('Demo ready · no key needed',{exact:true}).waitFor();
- await page.locator('[data-scenario="roof-edge"][aria-pressed="true"]').waitFor();
+ await page.goto(origin);await page.getByText('Camera & checklists · no key needed',{exact:true}).waitFor();
+ assert.equal(await page.locator('.observation').count(),0);await page.locator('#walkthrough summary').click();await page.click('[data-scenario="roof-edge"]');await page.locator('[data-scenario="roof-edge"][aria-pressed="true"]').waitFor();
  await page.locator('#briefing-text').filter({hasText:'suggests proximity'}).waitFor();
  await page.click('[data-scenario="poor-light"]');
  await page.locator('#briefing-text').filter({hasText:'No visual hazard assessment can be made'}).waitFor();
@@ -36,7 +36,7 @@ try{
  await page.evaluate(async()=>{await navigator.serviceWorker.ready;if(!navigator.serviceWorker.controller)await new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));});
  await context.setOffline(true);await page.reload();
  await page.getByText(/Offline workspace ·/).waitFor();
- await page.click('[data-scenario="eye-unclear"]');await page.selectOption('#task','ladder');
+ await page.locator('#walkthrough').evaluate(el=>el.open=true);await page.click('[data-scenario="eye-unclear"]');await page.selectOption('#task','ladder');
  await page.getByText('1 / 3 VERIFIED',{exact:true}).waitFor();
  await page.locator('#wind').fill('40');
  await page.locator('#briefing-text').filter({hasText:'Gusty conditions'}).waitFor();
@@ -48,7 +48,7 @@ try{
  assert.ok(cached.includes('/scenarios.js'));assert.ok(!cached.some(path=>path.startsWith('/api/')));
  await context.setOffline(false);await page.setViewportSize({width:1440,height:1100});
  await page.reload();await page.locator('.guidance-item').first().waitFor();
- await page.click('#install-app');await page.getByText('SiteSense on your device',{exact:true}).waitFor();
+ await page.click('#install-app');await page.getByText('SiteySense on your device',{exact:true}).waitFor();
  await page.getByRole('button',{name:'Close installation instructions'}).click();
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  assert.deepEqual(errors,[]);

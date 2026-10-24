@@ -1,6 +1,6 @@
-# Use SiteSense as an app
+# Use SiteySense as an app
 
-SiteSense is a Progressive Web App (PWA), built with HTML, CSS, browser JavaScript and a Node.js API backend. The same app adapts to a phone, tablet or desktop. Supported browsers can install it without an app store.
+SiteySense is a Progressive Web App (PWA), built with HTML, CSS, browser JavaScript and a Node.js API backend. The same app adapts to a phone, tablet or desktop. Supported browsers can install it without an app store.
 
 ## Run the complete project
 
@@ -57,4 +57,4 @@ Put an HTTPS reverse proxy or your hosting platform's HTTPS endpoint in front of
 
 ## Updating the app
 
-When changing offline shell assets for a release, increment `CACHE` in `public/sw.js`. The new service worker installs the complete asset list and removes only old SiteSense shell caches. Reload after the update. Clearing the browser's site data also removes locally saved reviews and confirmations, so download them first if needed.
+When changing offline shell assets for a release, increment `CACHE` in `public/sw.js`. The new service worker installs the complete asset list and removes only old SiteySense shell caches. Reload after the update. Clearing the browser's site data also removes locally saved reviews and confirmations, so download them first if needed.

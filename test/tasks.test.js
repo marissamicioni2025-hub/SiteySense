@@ -1,0 +1,9 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {tasks,topics,readTaskChecks} from '../public/tasks.js';
+import {assess,buildBriefing} from '../public/safety.js';
+test('each task has independent sourced checks and a task-specific briefing',()=>{for(const task of tasks){assert.ok(task.checks.length>=3);assert.equal(new Set(task.checks.map(c=>c.id)).size,task.checks.length);for(const check of task.checks){assert.ok(topics[check.topic]);assert.equal(new URL(topics[check.topic].url).hostname,'www.osha.gov');}const result=assess({task:task.id,temperature:65,wind:0});assert.ok(result.guidance.length>=2);assert.match(buildBriefing({task:task.id,mode:'task',temperature:65,wind:0}),new RegExp('Before '+task.briefing.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));}});
+test('legacy roofing and ladder confirmations retain their original meaning',()=>{assert.deepEqual(readTaskChecks('roofing',{'0':true,'1':false,'2':true}),{'fall-protection':true,'access-route':false,'site-conditions':true});assert.deepEqual(readTaskChecks('ladder',{'1':true}),{'ladder-setup':false,'required-ppe':true,'site-conditions':false});assert.equal(readTaskChecks('roofing',{'0':true,'fall-protection':false})['fall-protection'],false);assert.ok(Object.values(readTaskChecks('tools',{'0':true})).every(v=>!v));});
+test('unreviewed source pages never receive an invented review date or legal classification',()=>{for(const topic of Object.values(topics)){assert.equal(topic.reviewedAt,null);assert.match(topic.sourceStatus,/pending/);assert.equal(topic.kind,'General verification prompt');assert.ok(topic.scope.length>30);}});
+
+test('all ten task groups have stable identifiers and explicit source applicability',()=>{assert.equal(tasks.length,10);assert.equal(new Set(tasks.map(t=>t.id)).size,10);for(const topic of Object.values(topics)){assert.ok(topic.appliesTo.length>0);assert.ok(topic.appliesTo.every(id=>tasks.some(t=>t.id===id)));}});

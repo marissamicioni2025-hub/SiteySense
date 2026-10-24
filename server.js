@@ -1,7 +1,9 @@
+import pkg from './package.json' with {type:'json'};
 import http from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {resolve,sep} from 'node:path';
+import {getTask} from './public/tasks.js';
 import {assess} from './safety.js';
 import {runVisionChecks,validateDetections,decideReminder,runAgenticVideo} from './vision.js';
 const root=fileURLToPath(new URL('./public/',import.meta.url));
@@ -13,11 +15,11 @@ async function remote(url,options={}){const response=await fetch(url,{...options
 export const server=http.createServer(async(req,res)=>{
  try{
  const url=new URL(req.url,'http://localhost');
- if(url.pathname==='/api/status')return send(res,200,{visionConfigured:!!key,model,videoModel});
+ if(url.pathname==='/api/status')return send(res,200,{version:pkg.version,visionConfigured:!!key,model,videoModel});
  if(url.pathname==='/api/weather'){
  const lat=Number(url.searchParams.get('lat')),lon=Number(url.searchParams.get('lon'));
  if(!url.searchParams.has('lat')||!url.searchParams.has('lon')||!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)return send(res,400,{error:'Enter valid latitude and longitude.'});
- const headers={'User-Agent':'SiteSensePrototype/0.1','Accept':'application/geo+json'};
+ const headers={'User-Agent':'SiteySensePrototype/0.1','Accept':'application/geo+json'};
  const point=await remote(`https://api.weather.gov/points/${lat.toFixed(4)},${lon.toFixed(4)}`,{headers});
  const forecast=await remote(point.properties.forecastHourly,{headers});
  const p=forecast.properties.periods[0];
@@ -28,7 +30,7 @@ export const server=http.createServer(async(req,res)=>{
  let data;try{data=JSON.parse(body);}catch{return send(res,400,{error:'Invalid JSON.'});}
  if(!data||typeof data!=='object'||Array.isArray(data))return send(res,400,{error:'Send a JSON object.'});
  if(url.pathname==='/api/briefing'){
- if((data.task!==undefined&&!['roofing','ladder'].includes(data.task))||['temperature','wind'].some(k=>data[k]!==undefined&&(!Number.isFinite(data[k])||data[k]<(k==='wind'?0:-100)||data[k]>(k==='wind'?300:160)))||(data.rain!==undefined&&typeof data.rain!=='boolean')||(data.observations!==undefined&&(!Array.isArray(data.observations)||data.observations.some(o=>!o||!['edge','ladder','ppe'].includes(o.category)))))return send(res,400,{error:'Invalid task, conditions, or observations.'});
+ if((data.task!==undefined&&!getTask(data.task))||['temperature','wind'].some(k=>data[k]!==undefined&&(!Number.isFinite(data[k])||data[k]<(k==='wind'?0:-100)||data[k]>(k==='wind'?300:160)))||(data.rain!==undefined&&typeof data.rain!=='boolean')||(data.observations!==undefined&&(!Array.isArray(data.observations)||data.observations.some(o=>!o||!['edge','ladder','ppe'].includes(o.category)))))return send(res,400,{error:'Invalid task, conditions, or observations.'});
  if(data.detections!==undefined){try{data.detections=validateDetections(data.detections);}catch{return send(res,400,{error:'Invalid structured vision detections.'});}}
  return send(res,200,assess(data));
  }
@@ -55,4 +57,4 @@ export const server=http.createServer(async(req,res)=>{
  res.writeHead(200,{'Content-Type':mime,'X-Content-Type-Options':'nosniff','Cache-Control':'no-cache',...(url.pathname==='/sw.js'?{'Service-Worker-Allowed':'/'}:{})});res.end(content);
  }catch(error){send(res,error.code==='ENOENT'?404:502,{error:error.code==='ENOENT'?'Not found':error.message});}
 });
-if(process.argv[1]===fileURLToPath(import.meta.url))server.listen(Number(process.env.PORT)||3000,'0.0.0.0',()=>console.log('SiteSense running on port '+(process.env.PORT||3000)));
+if(process.argv[1]===fileURLToPath(import.meta.url))server.listen(Number(process.env.PORT)||3000,'0.0.0.0',()=>console.log('SiteySense running on port '+(process.env.PORT||3000)));
