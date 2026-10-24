@@ -1,5 +1,6 @@
 import {assess,buildBriefing} from './safety.js';
 import './platform.js';
+import {createLiveCamera} from './live-camera.js';
 import {scenarios,getScenario} from './scenarios.js';
 const $=id=>document.getElementById(id);
 let state={task:'roofing',temperature:94,wind:23,rain:false,observations:[],mode:'demo',weatherSource:'simulated'},upload=null,objectURL=null,generation=0;
@@ -10,6 +11,11 @@ async function api(path,data){const response=await fetch(path,data?{method:'POST
 let briefing='', recorder=null, cameraStream=null, recordTimer=null, recordedDuration=null, capturePending=false;
 let visualSummary='Demo observations are scripted, not model detections.';
 let latestGuidance=[],visionConfigured=null,weatherRevision=0;
+const liveCamera=createLiveCamera({video:$('live-video'),open:$('live-open'),close:$('live-close'),flip:$('live-flip'),snapshot:$('live-snapshot'),onBusy:setBusy,
+ onStart:()=>{clearMedia();state.mode='upload';clearScenarioSelection();state.observations=[];delete state.detections;delete state.processing;delete state.model;visualSummary='Live camera preview only. No visual assessment has been made.';$('illustration').toggleAttribute('hidden',true);$('scene-note').hidden=true;$('scene-label').textContent='LIVE CAMERA · LOCAL PREVIEW ONLY';$('mode-badge').textContent='LIVE PREVIEW';$('analysis-message').textContent='Camera preview does not detect hazards. Capture a frame or record a clip for a separate review.';render();},
+ onMessage:message=>{$('live-status').textContent=message;if(state.mode==='upload'&&!upload){const active=!!$('live-video').srcObject;$('mode-badge').textContent=active?'LIVE PREVIEW':'CAMERA NOT CONNECTED';$('scene-label').textContent=active?'LIVE CAMERA · LOCAL PREVIEW ONLY':'CAMERA NOT CONNECTED · NO ANALYSIS';}}
+});
+$('live-snapshot').addEventListener('camera:frame',event=>{selectFile(event.detail);$('live-status').textContent='Frame captured locally. Preview stopped. The image has not been analyzed or uploaded.';});
 async function render(){
  const version=++generation;
  if('speechSynthesis'in window&&speechSynthesis.speaking){speechSynthesis.cancel();$('speech-status').textContent='Review updated. Play the new briefing when ready.';}
@@ -43,7 +49,7 @@ $('reset').onclick=()=>{checks[state.task]={};try{localStorage.setItem('sitesens
 $('task').onchange=()=>{state.task=$('task').value;render();};
 for(const id of ['temp','wind','rain'])$(id).oninput=()=>{weatherRevision++;state.weatherSource='simulated';state.temperature=Number($('temp').value);state.wind=Number($('wind').value);state.rain=$('rain').checked;$('weather-badge').textContent='SIMULATED';$('weather-summary').textContent='What-if scenario';$('weather-message').textContent='Simulated values. Not current site conditions.';render();};
 $('weather').onclick=async()=>{const revision=++weatherRevision;const button=$('weather');button.disabled=true;$('weather-message').textContent='Retrieving NWS hourly forecast…';try{const data=await api(`/api/weather?lat=${encodeURIComponent($('lat').value)}&lon=${encodeURIComponent($('lon').value)}`);if(revision!==weatherRevision){$('weather-message').textContent='Forecast request finished; your newer simulated conditions were kept.';return;}state.weatherSource='forecast';state.temperature=Math.round(data.temperature);state.wind=data.wind;state.rain=/rain|shower|thunder|snow/i.test(data.summary);$('temp').value=state.temperature;$('wind').value=state.wind;$('rain').checked=state.rain;$('weather-badge').textContent='NWS FORECAST';$('weather-summary').textContent=data.summary;$('weather-message').textContent=`Forecast for ${new Date(data.period).toLocaleString()}. Updated ${new Date(data.updated).toLocaleString()}. Wind is forecast wind, not measured gusts.`;document.querySelector('.location').textContent=`↗ ${$('lat').value}, ${$('lon').value}`;render();}catch(error){if(revision===weatherRevision)$('weather-message').textContent=error.message+'. Existing conditions retained.';}finally{button.disabled=false;}};
-function clearMedia(){stopCamera();recordedDuration=null;$('coverage').hidden=true;$('coverage').textContent='';if(objectURL)URL.revokeObjectURL(objectURL);objectURL=null;upload=null;$('upload').value='';$('video').pause();$('video').removeAttribute('src');$('video').load();$('photo').removeAttribute('src');$('video').hidden=true;$('photo').hidden=true;}
+function clearMedia(){liveCamera.stop();stopCamera();recordedDuration=null;$('coverage').hidden=true;$('coverage').textContent='';if(objectURL)URL.revokeObjectURL(objectURL);objectURL=null;upload=null;$('upload').value='';$('video').pause();$('video').removeAttribute('src');$('video').load();$('photo').removeAttribute('src');$('video').hidden=true;$('photo').hidden=true;}
 function demo(id='roof-edge'){
  const scenario=getScenario(id);clearMedia();state.mode='demo';state.scenarioId=id;state.detections=scenario.detections;state.observations=scenario.observations;delete state.processing;delete state.model;
  $('illustration').toggleAttribute('hidden',false);$('illustration').style.filter=scenario.dim?'brightness(.15) blur(4px)':'';
@@ -74,7 +80,7 @@ function stopCamera(){if(recordTimer)clearInterval(recordTimer);recordTimer=null
 $('record').onclick=async()=>{
  if(capturePending)return;
  if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){$('analysis-message').textContent='In-browser recording needs a supported browser and HTTPS. Use your phone camera and Upload footage instead.';return;}
- capturePending=true;setBusy(true);
+ capturePending=true;liveCamera.stop();setBusy(true);
  try{
  const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
  clearMedia();cameraStream=stream;state.mode='upload';clearScenarioSelection();state.observations=[];delete state.detections;delete state.processing;delete state.model;visualSummary='Recording in progress; footage has not been analyzed.';render();
@@ -96,7 +102,7 @@ window.addEventListener('pagehide',stopCamera);
 
 async function ready(el,event){if(el instanceof HTMLVideoElement?el.readyState>=2:el.complete&&el.naturalWidth)return;await new Promise((resolve,reject)=>{const timer=setTimeout(()=>{cleanup();reject(Error('Media could not be loaded. Try a different file.'));},12000);const cleanup=()=>{clearTimeout(timer);el.removeEventListener(event,ok);el.removeEventListener('error',bad);};const ok=()=>{cleanup();resolve();};const bad=()=>{cleanup();reject(Error('Media could not be decoded.'));};el.addEventListener(event,ok,{once:true});el.addEventListener('error',bad,{once:true});});}
 async function frames(){const canvas=document.createElement('canvas');const context=canvas.getContext('2d');const isVideo=upload.type.startsWith('video');const el=isVideo?$('video'):$('photo');await ready(el,isVideo?'loadeddata':'load');const duration=recordedDuration||el.duration;if(isVideo&&(!Number.isFinite(duration)||duration>30))throw Error('Choose a clip of 30 seconds or less.');const width=isVideo?el.videoWidth:el.naturalWidth,height=isVideo?el.videoHeight:el.naturalHeight;canvas.width=Math.min(width,960);canvas.height=Math.round(height*canvas.width/width);const times=isVideo?[0.1,0.33,0.66,0.95].map(f=>Math.round(duration*f*100)/100):[0];const samples=[];for(const time of times){if(isVideo){el.pause();if(Math.abs(el.currentTime-time)>.01)await new Promise((resolve,reject)=>{const timer=setTimeout(()=>{el.removeEventListener('seeked',done);reject(Error('Could not sample video.'));},7000);const done=()=>{clearTimeout(timer);resolve();};el.addEventListener('seeked',done,{once:true});el.currentTime=time;});}context.drawImage(el,0,0,canvas.width,canvas.height);samples.push({time,image:canvas.toDataURL('image/jpeg',.8)});}return samples;}
-function setBusy(busy){for(const id of ['analyze','upload','phone-photo','demo','dim','record','capture-photo','review-mode'])$(id).disabled=busy;for(const button of $('scenario-options').children)button.disabled=busy;}
+function setBusy(busy){for(const id of ['analyze','upload','phone-photo','demo','dim','record','capture-photo','review-mode','live-open'])$(id).disabled=busy;for(const button of $('scenario-options').children)button.disabled=busy;}
 async function videoPayload(){
  const el=$('video');await ready(el,'loadeddata');const duration=recordedDuration||el.duration;
  if(!Number.isFinite(duration)||duration<=0||duration>30)throw Error('Choose a clip of 30 seconds or less.');

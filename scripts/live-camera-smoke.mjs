@@ -1,0 +1,30 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+const browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{}),args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream',...(process.env.CHROMIUM_NO_SANDBOX==='1'?['--no-sandbox']:[])]});
+const origin=process.env.SITESENSE_URL||'http://127.0.0.1:3000';
+try{
+ const context=await browser.newContext({permissions:['camera'],viewport:{width:390,height:844}});
+ const page=await context.newPage();let submissions=0;const errors=[];
+ page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.method()==='POST')submissions++;});
+ await page.goto(origin);await page.locator('.guidance-item').first().waitFor();
+ await page.click('#live-open');await page.getByText('LIVE PREVIEW',{exact:true}).waitFor();
+ await page.waitForFunction(()=>document.getElementById('live-video').readyState>=2);
+ assert.equal(await page.locator('.observation').count(),0);
+ await page.evaluate(()=>window.previousTracks=document.getElementById('live-video').srcObject.getTracks());
+ await page.click('#live-flip');await page.waitForFunction(()=>document.getElementById('live-video').srcObject?.active);
+ assert.ok(await page.evaluate(()=>window.previousTracks.every(t=>t.readyState==='ended')));
+ await page.click('#live-snapshot');await page.getByText('UPLOAD',{exact:true}).waitFor();
+ assert.equal(await page.locator('#photo').isVisible(),true);
+ assert.ok(await page.locator('#live-video').evaluate(v=>v.srcObject===null));
+ assert.equal(await page.locator('#consent').isChecked(),false);
+ await page.click('#live-open');await page.waitForFunction(()=>document.getElementById('live-video').srcObject?.active);
+ await page.evaluate(()=>window.previousTracks=document.getElementById('live-video').srcObject.getTracks());
+ await page.click('#live-close');assert.ok(await page.evaluate(()=>window.previousTracks.every(t=>t.readyState==='ended')));
+ await page.click('#live-open');await page.waitForFunction(()=>document.getElementById('live-video').srcObject?.active);
+ await page.evaluate(()=>window.previousTracks=document.getElementById('live-video').srcObject.getTracks());
+ await page.click('[data-scenario="roof-edge"]');assert.ok(await page.evaluate(()=>window.previousTracks.every(t=>t.readyState==='ended')));
+ assert.equal(submissions,0);assert.deepEqual(errors,[]);
+ const denied=await context.newPage();await denied.addInitScript(()=>{navigator.mediaDevices.getUserMedia=async()=>{throw new DOMException('Denied','NotAllowedError');};});await denied.goto(origin);await denied.click('#live-open');await denied.getByText(/Camera access was denied/).waitFor();assert.equal(await denied.locator('#live-open').isEnabled(),true);assert.equal(await denied.locator('#record').isEnabled(),true);
+ const delayed=await context.newPage();await delayed.addInitScript(()=>{const original=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);navigator.mediaDevices.getUserMedia=async options=>{const stream=await original(options);window.pendingTracks=stream.getTracks();await new Promise(resolve=>window.releaseCamera=resolve);return stream;};});await delayed.goto(origin);await delayed.click('#live-open');await delayed.waitForFunction(()=>window.releaseCamera);await delayed.click('#live-close');await delayed.evaluate(()=>window.releaseCamera());await delayed.waitForFunction(()=>window.pendingTracks.every(t=>t.readyState==='ended'));assert.equal(await delayed.locator('#live-video').isVisible(),false);
+ console.log('Live camera checks passed: fake-device preview, switch, snapshot, no uploads, stream cleanup, scenario isolation, denied permission recovery and cancelled permission request cleanup. Physical devices untested.');
+}finally{await browser.close();}

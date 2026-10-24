@@ -23,6 +23,10 @@ On a trusted local network you can also reach a running computer's server using 
 
 The app cannot keep model secrets in a static HTML host. Deploy the Node backend along with `public/`, at the same HTTPS origin. Access to Gemini and NWS must be allowed by the server's network policy. Protect a shared/public deployment with your hosting platform's access controls and usage limits before handing out the link; this project has no user accounts or server-side quota system.
 
+## Connect your camera
+
+On your HTTPS app, choose **Open live camera** → allow the browser's camera permission. Use **Switch camera**, **Capture frame**, or **Stop camera**. Capture creates a local photo for a separate review; the live preview never automatically uploads frames or runs model analysis. It needs no Gemini key. If you switch away from the app, the preview stops for privacy; open it again to reconnect. If permission is denied, use the browser's site permissions to allow Camera, then retry. On iPhone, also check camera permissions for Safari in device settings. Native photo upload remains a fallback.
+
 ## Install
 
 - **iPhone / iPad:** Open the HTTPS app in Safari, tap Share, then Add to Home Screen (or the equivalent option provided by your browser version).

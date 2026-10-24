@@ -34,6 +34,14 @@ Choose one of the three **scripted demo** cards: Roof edge, Poor visibility, or 
 
 Choose a task, confirm your checks, change simulated conditions, and play or save the briefing. Selecting a real upload clears the scenario results. When automatic analysis is unavailable, the app keeps the upload unanalyzed and points back to the demo; it never silently assigns scripted detections to your footage.
 
+## Live camera preview
+
+Select **Open live camera** and allow camera permission. It works over HTTPS on phones and supported desktop browsers without any model key. **Switch camera** requests the other facing direction when your device supports it; it may use the same camera if no other camera is available. **Capture frame** freezes a local JPEG and stops the preview so you can prepare a separate review. No audio is requested and no frame is automatically uploaded. **Stop camera**, switching to a scenario/upload, leaving the page, or putting it in the background releases the preview stream. Reopen the camera when returning.
+
+This is a live preview, not live AI hazard detection. Optional model analysis still requires configured API access and explicit upload permission. If camera permission is denied, allow it in the browser's site settings and retry, or use native photo/file upload. Desktop and mobile camera hardware behavior has not been physically tested; the automated tests use Chromium's fake camera.
+
+Run `npm run test:camera` after installing the Playwright browser to repeat preview, switch, snapshot, permission-denial, stream cleanup and cancelled-request tests. It uses fake media and makes no model requests.
+
 ## The experience
 
 1. Choose roofing or ladder access and verify the task checklist.
