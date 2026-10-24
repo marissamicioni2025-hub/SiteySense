@@ -1,6 +1,6 @@
 {
   "name": "siteysense-ai",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,8 @@
     "test": "node --test",
     "test:browser": "node scripts/browser-smoke.mjs",
     "test:camera": "node scripts/live-camera-smoke.mjs",
-    "test:tasks": "node scripts/tasks-smoke.mjs"
+    "test:tasks": "node scripts/tasks-smoke.mjs",
+    "test:weather": "node scripts/weather-smoke.mjs"
   },
   "engines": {
     "node": ">=24.5"

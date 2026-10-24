@@ -9,7 +9,7 @@ try{
  await page.goto(process.env.SITESENSE_URL||'http://127.0.0.1:3000');
  assert.match(await page.title(),/SiteySense/);assert.equal(await page.locator('#task option').count(),10);
  await page.getByText('2 / 3 VERIFIED',{exact:true}).waitFor();
- assert.ok((await page.locator('#live-open').boundingBox()).y<650);
+ assert.ok((await page.locator('#camera-shortcut').boundingBox()).y<650);
  await page.click('#mobile-reviews');await page.getByText('Legacy saved review',{exact:true}).waitFor();await page.getByRole('button',{name:'Close saved reviews'}).click();
  for(const task of tasks){await page.selectOption('#task',task.id);assert.equal(await page.locator('#checklist input').count(),task.checks.length);await page.locator('#briefing-text').filter({hasText:'Before '+task.briefing}).waitFor();const links=await page.locator('#checklist a').evaluateAll(links=>links.map(a=>a.href));assert.ok(links.every(link=>new URL(link).hostname==='www.osha.gov'));if(!['roofing','ladder'].includes(task.id)){await page.getByText(`0 / ${task.checks.length} VERIFIED`,{exact:true}).waitFor();await page.locator('#checklist input').first().check();}}
  await page.selectOption('#task','tools');await page.getByText('1 / 4 VERIFIED',{exact:true}).waitFor();
@@ -22,7 +22,7 @@ try{
  await page.fill('#review-note','Keep this note for recheck');await page.locator('#walkthrough').evaluate(el=>el.open=true);await page.click('[data-scenario="roof-edge"]');await page.click('#reset');assert.equal(await page.locator('.observation').count(),0);await page.getByText('0 / 4 VERIFIED',{exact:true}).waitFor();assert.equal(await page.locator('#review-note').inputValue(),'Keep this note for recheck');
  await page.click('#new-task');assert.equal(await page.locator('#review-note').inputValue(),'');
  await page.selectOption('#task','roofing');await page.getByText('2 / 3 VERIFIED',{exact:true}).waitFor();
- await page.locator('.source-scope summary').first().click();await page.getByText(/Source review pending/).first().waitFor();
+ await page.locator('.guidance-item>summary').first().click();await page.locator('.source-scope summary').first().click();await page.getByText(/Source review pending/).first().waitFor();
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await page.setViewportSize({width:1440,height:1100});await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:'/tmp/siteysense-expanded-desktop.png',fullPage:true,animations:'disabled'});await page.setViewportSize({width:390,height:844});await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:'/tmp/siteysense-expanded-mobile.png',fullPage:true,animations:'disabled'});
  assert.deepEqual(errors,[]);console.log('Tasks browser passed: branding, camera placement, ten checklists/briefings, legacy confirmations and saved reviews, isolation, note opt-in/export, fresh review, conditions recheck and source scope.');

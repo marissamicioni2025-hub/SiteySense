@@ -1,18 +1,24 @@
-import {getTask,tasks,topics,readTaskChecks} from './tasks.js';
+import {visualChecks} from './visual-checks.js';
+import {attentionFactors} from './attention.js';
+import {getTask,tasks,topics,readTaskChecks,resourceGroups} from './tasks.js';
 import {assess,buildBriefing} from './safety.js';
 import './platform.js';
+import {createWeatherControls} from './weather-ui.js';
+import {sanitizeWeatherReport} from './weather-state.js';
 import {createLiveCamera} from './live-camera.js';
 import {scenarios,getScenario} from './scenarios.js';
 const $=id=>document.getElementById(id);
-let state={task:'roofing',temperature:94,wind:23,rain:false,observations:[],mode:'task',weatherSource:'simulated'},upload=null,objectURL=null,generation=0;
+let state={task:'roofing',temperature:null,wind:null,rain:false,surfaceStatus:'unknown',observations:[],mode:'task',weatherSource:'unavailable',weatherData:null,weatherStatus:'idle'},upload=null,objectURL=null,generation=0;
 $('task').replaceChildren(...tasks.map(task=>{const option=document.createElement('option');option.value=task.id;option.textContent=task.label;return option;}));
 for(const scenario of scenarios){const button=document.createElement('button');button.type='button';button.dataset.scenario=scenario.id;button.innerHTML=`<strong>${scenario.title}</strong><span>${scenario.subtitle}</span>`;button.onclick=()=>demo(scenario.id);$('scenario-options').append(button);}
+for(const check of visualChecks){const p=document.createElement('p');p.className='fine';p.textContent=check.title+': '+check.canObserve+' Cannot establish: '+check.cannotEstablish;$('visual-capabilities').append(p);}
 let checks={};try{checks=JSON.parse(localStorage.getItem('sitesense-checks')||'{}');if(!checks||typeof checks!=='object'||Array.isArray(checks))checks={};}catch{}
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function api(path,data){const response=await fetch(path,data?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}:{});const result=await response.json();if(!response.ok)throw Error(result.error||'Request failed');return result;}
 let briefing='', recorder=null, cameraStream=null, recordTimer=null, recordedDuration=null, capturePending=false;
 let visualSummary='Visual conditions have not been confirmed.';
-let latestGuidance=[],visionConfigured=null,weatherRevision=0;
+let latestGuidance=[],visionConfigured=null;
+const weatherControls=createWeatherControls({state,onChange:render,request:api});
 const liveCamera=createLiveCamera({video:$('live-video'),open:$('live-open'),close:$('live-close'),flip:$('live-flip'),snapshot:$('live-snapshot'),onBusy:setBusy,
  onStart:()=>{clearMedia();state.mode='upload';clearScenarioSelection();state.observations=[];delete state.detections;delete state.processing;delete state.model;visualSummary='Live camera preview only. No visual assessment has been made.';$('illustration').toggleAttribute('hidden',true);$('scene-note').hidden=true;$('scene-label').textContent='LIVE CAMERA · LOCAL PREVIEW ONLY';$('mode-badge').textContent='LIVE PREVIEW';$('analysis-message').textContent='Camera preview does not detect hazards. Capture a frame or record a clip for a separate review.';render();},
  onMessage:message=>{$('live-status').textContent=message;if(state.mode==='upload'&&!upload){const active=!!$('live-video').srcObject;$('mode-badge').textContent=active?'LIVE PREVIEW':'CAMERA NOT CONNECTED';$('scene-label').textContent=active?'LIVE CAMERA · LOCAL PREVIEW ONLY':'CAMERA NOT CONNECTED · NO ANALYSIS';}}
@@ -22,8 +28,8 @@ $('live-snapshot').addEventListener('camera:frame',event=>{selectFile(event.deta
 async function render(){
  const version=++generation;
  if('speechSynthesis'in window&&speechSynthesis.speaking){speechSynthesis.cancel();$('speech-status').textContent='Review updated. Play the new briefing when ready.';}
- $('temp-display').textContent=Math.round(state.temperature)+'°';$('wind-display').innerHTML=escape(state.wind)+' <span>mph</span>';$('rain-display').textContent=state.rain?'Wet':'Dry';
- $('temp-value').textContent=state.temperature+'°F';$('wind-value').textContent=state.wind+' mph';
+ weatherControls.render();
+ $('temp-value').textContent=Number.isFinite(state.temperature)?state.temperature+'°F':'Not set';$('wind-value').textContent=Number.isFinite(state.wind)?state.wind+' mph':'Not set';
  $('timeline').replaceChildren();
  for(const time of [...new Set((state.detections||[]).map(d=>d.time))]){
  const button=document.createElement('button');button.textContent=time.toFixed(1)+'s';button.type='button';button.title='Jump to reviewed moment';button.disabled=$('video').hidden;
@@ -34,13 +40,22 @@ async function render(){
  try{
  const result=assess(state);if(version!==generation)return;
  latestGuidance=result.guidance;
- $('risk').textContent=result.level;
- $('guidance').innerHTML=result.guidance.map(g=>`<div class="guidance-item"><h3>${escape(g.title)}</h3><p>${escape(g.action)}</p><a href="${escape(g.url)}" target="_blank" rel="noopener noreferrer">${escape(g.source)} ↗</a><details class="source-scope"><summary>Source and scope</summary><p>${escape(g.kind)} · ${escape(g.reviewedAt?'Reviewed '+g.reviewedAt:g.sourceStatus)}</p><p>${escape(g.scope)}</p></details></div>`).join('');
+ renderAttention();
+ const groups=Object.groupBy(result.guidance,g=>g.group);
+ $('guidance').innerHTML=Object.entries(groups).map(([group,items])=>`<div class="resource-group"><h3>${escape(resourceGroups[group])}</h3>${items.map(g=>`<details class="guidance-item"><summary>${escape(g.title)}</summary><p>${escape(g.action)}</p><a href="${escape(g.url)}" target="_blank" rel="noopener noreferrer">${escape(g.source)} ↗</a><details class="source-scope"><summary>Source and scope</summary><p>${escape(g.kind)} · ${escape(g.reviewedAt?'Reviewed '+g.reviewedAt:g.sourceStatus)}</p><p>${escape(g.scope)}</p></details></details>`).join('')}</div>`).join('');
+ $('extra-resources').innerHTML='<a class="extra-resource" href="https://www.cdc.gov/niosh/" target="_blank" rel="noopener noreferrer">NIOSH occupational safety resources ↗</a><a class="extra-resource" href="https://www.weather.gov/safety/" target="_blank" rel="noopener noreferrer">NWS weather safety resources ↗</a><p class="fine">Additional resource links · content review pending. No fatality statistics are presented as verified.</p>';
  $('environmental').textContent=result.environmental.join(' ')||'Review the site plan and verify conditions before beginning.';
  briefing=buildBriefing(state);
  $('briefing-text').textContent=briefing;
  }catch(error){$('guidance').textContent=error.message;}
  renderChecks();
+}
+function renderAttention(){
+ const items=attentionFactors(state,readTaskChecks(state.task,checks[state.task]));
+ $('risk').textContent=items.some(item=>item.status==='Review required')?'Review required':items.some(item=>item.status==='Information unavailable')?'Information unavailable':items.some(item=>item.status==='Cannot verify')?'Cannot verify':'No additional reminder triggered';
+ $('attention-list').replaceChildren();
+ let more;
+ items.forEach((item,index)=>{const article=document.createElement('article');article.className='attention-item';const heading=document.createElement('h3');heading.textContent=item.title;const badge=document.createElement('small');badge.textContent=item.status+' · '+item.source;const evidence=document.createElement('p');evidence.textContent=item.evidence;const why=document.createElement('p');why.className='attention-why';why.textContent='Why: '+item.relevance;const action=document.createElement('p');action.className='attention-action';action.textContent=item.action;const source=document.createElement('a');source.href=item.url;source.target='_blank';source.rel='noopener noreferrer';source.textContent=item.classification+' ↗';article.append(heading,badge,evidence,why,action,source);if(item.time){const time=document.createElement('small');time.textContent=Number.isFinite(Date.parse(item.time))?'Source time: '+new Date(item.time).toLocaleString():item.time;article.append(time);}if(index<3)$('attention-list').append(article);else{if(!more){more=document.createElement('details');more.className='attention-more';const summary=document.createElement('summary');summary.textContent=`${items.length-3} more attention item(s)`;more.append(summary);$('attention-list').append(more);}more.append(article);}});
 }
 function renderChecks(){
  const definition=getTask(state.task);const current=readTaskChecks(state.task,checks[state.task]);
@@ -50,7 +65,7 @@ function renderChecks(){
  const label=document.createElement('label');label.className='check';const input=document.createElement('input');input.type='checkbox';input.checked=current[item.id];input.dataset.check=item.id;
  const text=document.createElement('span');text.textContent=item.label;const small=document.createElement('small');small.textContent=input.checked?'Confirmed by you':'Awaiting your confirmation';text.append(small);label.append(input,text);
  const source=document.createElement('a');source.className='check-source';source.href=topics[item.topic].url;source.target='_blank';source.rel='noopener noreferrer';source.textContent=topics[item.topic].source+' ↗';
- input.onchange=()=>{checks[state.task]={...readTaskChecks(state.task,checks[state.task]),[item.id]:input.checked};try{localStorage.setItem('sitesense-checks',JSON.stringify(checks));}catch{$('progress').title='Storage unavailable; confirmations last for this session only.';}renderChecks();};
+ input.onchange=()=>{checks[state.task]={...readTaskChecks(state.task,checks[state.task]),[item.id]:input.checked};try{localStorage.setItem('sitesense-checks',JSON.stringify(checks));}catch{$('progress').title='Storage unavailable; confirmations last for this session only.';}renderChecks();renderAttention();};
  row.append(label,source);$('checklist').append(row);
  }
  $('progress').textContent=`${Object.values(current).filter(Boolean).length} / ${definition.checks.length} VERIFIED`;
@@ -67,8 +82,9 @@ function beginReview(clearNote=true){
 $('new-task').onclick=()=>beginReview();$('reset').onclick=()=>beginReview(false);
 $('task').onchange=()=>{state.task=$('task').value;$('review-note').value='';$('task-status').textContent='Showing this task’s saved confirmations. Start a fresh review for a new job.';render();};
 
-for(const id of ['temp','wind','rain'])$(id).oninput=()=>{weatherRevision++;state.weatherSource='simulated';state.temperature=Number($('temp').value);state.wind=Number($('wind').value);state.rain=$('rain').checked;$('weather-badge').textContent='SIMULATED';$('weather-summary').textContent='What-if scenario';$('weather-message').textContent='Simulated values. Not current site conditions.';render();};
-$('weather').onclick=async()=>{const revision=++weatherRevision;const button=$('weather');button.disabled=true;$('weather-message').textContent='Retrieving NWS hourly forecast…';try{const data=await api(`/api/weather?lat=${encodeURIComponent($('lat').value)}&lon=${encodeURIComponent($('lon').value)}`);if(revision!==weatherRevision){$('weather-message').textContent='Forecast request finished; your newer simulated conditions were kept.';return;}state.weatherSource='forecast';state.temperature=Math.round(data.temperature);state.wind=data.wind;state.rain=/rain|shower|thunder|snow/i.test(data.summary);$('temp').value=state.temperature;$('wind').value=state.wind;$('rain').checked=state.rain;$('weather-badge').textContent='NWS FORECAST';$('weather-summary').textContent=data.summary;$('weather-message').textContent=`Forecast for ${new Date(data.period).toLocaleString()}. Updated ${new Date(data.updated).toLocaleString()}. Wind is forecast wind, not measured gusts.`;document.querySelector('.location').textContent=`↗ ${$('lat').value}, ${$('lon').value}`;render();}catch(error){if(revision===weatherRevision)$('weather-message').textContent=error.message+'. Existing conditions retained.';}finally{button.disabled=false;}};
+for(const id of ['temp','wind','rain'])$(id).oninput=()=>{state.temperature=Number($('temp').value);state.wind=Number($('wind').value);state.rain=$('rain').checked;weatherControls.simulationChanged();render();};
+$('surface-status').onchange=()=>{state.surfaceStatus=$('surface-status').value;render();};
+
 function clearMedia(){liveCamera.stop();stopCamera();recordedDuration=null;$('coverage').hidden=true;$('coverage').textContent='';if(objectURL)URL.revokeObjectURL(objectURL);objectURL=null;upload=null;$('upload').value='';$('video').pause();$('video').removeAttribute('src');$('video').load();$('photo').removeAttribute('src');$('video').hidden=true;$('photo').hidden=true;}
 function demo(id='roof-edge'){
  const scenario=getScenario(id);$('walkthrough').open=true;clearMedia();state.mode='demo';state.scenarioId=id;state.detections=scenario.detections;state.observations=scenario.observations;delete state.processing;delete state.model;
@@ -149,12 +165,12 @@ $('analyze').onclick=async()=>{
  finally{setBusy(false);}
 };
 $('brief').onclick=()=>{if(!('speechSynthesis'in window)){$('speech-status').textContent='Speech is unavailable in this browser. Read the briefing below.';return;}speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(briefing);utterance.rate=.95;utterance.onstart=()=>{$('speech-status').textContent='Speaking briefing…';};utterance.onend=()=>{$('speech-status').textContent='Briefing complete.';};utterance.onerror=()=>{$('speech-status').textContent='Speech could not play. Read the briefing above.';};speechSynthesis.speak(utterance);};
-api('/api/status').then(s=>{visionConfigured=s.visionConfigured;$('vision-status').textContent=s.visionConfigured?'Vision model configured':'Camera & checklists · no key needed';}).catch(()=>{$('vision-status').textContent='Offline workspace · AI needs connection';});
+api('/api/status').then(s=>{visionConfigured=s.visionConfigured;$('experimental-status').textContent=s.extendedChecks?'Experimental schema enabled on server. Accuracy remains untested; structured observations require review.':'Prepared checks are off by default. No live model performance has been evaluated.';$('vision-status').textContent=s.visionConfigured?'Vision model configured':'Camera & checklists · no key needed';}).catch(()=>{$('vision-status').textContent='Offline workspace · AI needs connection';});
 $('scenario-description').textContent='Scripted examples explain the workflow. They never analyze or describe your camera.';render();
 
 $('stop-speech').onclick=()=>{if('speechSynthesis'in window)speechSynthesis.cancel();$('speech-status').textContent='Audio stopped.';};
 $('download-report').onclick=()=>{
- const report={project:'SiteySense AI',created:new Date().toISOString(),task:state.task,mode:state.mode,scenarioId:state.scenarioId||null,note:$('review-note').value.trim(),visualSummary,conditions:{temperatureF:state.temperature,windMph:state.wind,wet:state.rain,source:$('weather-badge').textContent,details:$('weather-message').textContent},detections:state.detections||[],processing:state.processing||null,visionModel:state.model||null,observations:state.observations,taskLabel:getTask(state.task).label,checklist:getTask(state.task).checks,workerConfirmations:readTaskChecks(state.task,checks[state.task]),briefing,guidance:latestGuidance,limitation:'Decision support only. Not an all-clear. No injury probability, compliance certification, or comprehensive video coverage.'};
+ const report={attention:attentionFactors(state,readTaskChecks(state.task,checks[state.task])),project:'SiteySense AI',created:new Date().toISOString(),task:state.task,mode:state.mode,scenarioId:state.scenarioId||null,note:$('review-note').value.trim(),visualSummary,conditions:sanitizeWeatherReport(state),detections:state.detections||[],processing:state.processing||null,visionModel:state.model||null,observations:state.observations,taskLabel:getTask(state.task).label,checklist:getTask(state.task).checks,workerConfirmations:readTaskChecks(state.task,checks[state.task]),briefing,guidance:latestGuidance,limitation:'Decision support only. Not an all-clear. No injury probability, compliance certification, or comprehensive video coverage.'};
  window.dispatchEvent(new CustomEvent('sitesense:save-review',{detail:report}));
  const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='siteysense-review.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 };

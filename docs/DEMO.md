@@ -50,3 +50,9 @@ Choose a task such as scaffold work or cutting/drilling. Explain that the user c
 Use **Start a fresh review** before a new job, or **Conditions changed? Recheck** to clear old confirmations and visual evidence while retaining an unsaved note. Add a brief non-sensitive supervisor question, save the review, and open it from the notebook. Old roofing/ladder confirmations and earlier saved reviews remain accessible.
 
 Open the live camera from the top of the workspace. Show the local-only status, capture a frame and explain that it has not been analyzed. Never present live preview as AI monitoring.
+
+## Dashboard walkthrough
+
+Start at Today’s task. Point out that weather is unavailable until a location is checked, and that no camera analysis has occurred. Choose a task and confirm one precaution. Use a manually selected location or explicitly allow geolocation to request an NWS forecast; explain its update time and the difference between forecast wind and measured gusts. If networking fails, use the what-if controls and identify the simulation label.
+
+Show Needs attention: each item has a source, evidence, relevance and verification action. Compare forecast precipitation with the independent worker-reported surface selector. A forecast of rain is not proof of a wet roof. Expand Resources for official references and their review status. Open live camera and explain that it is local preview only. Prepared extra AI checks are off by default and not validated on real footage. Use a scripted example to demonstrate uncertainty if no authorized model access exists.

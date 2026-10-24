@@ -20,10 +20,11 @@ try{
  await page.selectOption('#task','ladder');
  await page.locator('#briefing-text').filter({hasText:'Before ladder access'}).waitFor();
  await page.locator('#checklist input').first().check();
+ await page.locator('#temp').fill('85');
  const downloadReady=page.waitForEvent('download');await page.click('#download-report');
  const download=await downloadReady;const stream=await download.createReadStream();let json='';for await(const chunk of stream)json+=chunk;
  const report=JSON.parse(json);assert.equal(report.mode,'demo');assert.equal(report.scenarioId,'eye-unclear');
- assert.equal(report.task,'ladder');assert.equal(report.conditions.source,'SIMULATED');
+ assert.equal(report.task,'ladder');assert.equal(report.conditions.source,'simulated');
  assert.doesNotMatch(json,/base64|GEMINI_API_KEY|inlineData|data:image/);
  await page.click('#mobile-reviews');await page.locator('.saved-review').waitFor();
  await page.getByRole('button',{name:'Close saved reviews'}).click();

@@ -36,3 +36,6 @@ export function readTaskChecks(id,stored={}){const task=getTask(id);if(!task)ret
 export function taskTopics(id){return getTask(id)?.topics.map(key=>topics[key])||[];}
 
 for(const item of Object.values(topics))item.appliesTo=tasks.filter(task=>task.topics.includes(item.key)||task.checks.some(check=>check.topic===item.key)).map(task=>task.id);
+
+export const resourceGroups={fall:'Fall protection and openings',access:'Ladder and scaffold preparation',tools:'Tools, dust and PPE',routes:'Moving equipment and access routes',weather:'Heat and weather planning'};
+for(const item of Object.values(topics))item.group=['edge'].includes(item.key)?'fall':['ladder','scaffold'].includes(item.key)?'access':['tools','silica','noise','ppe','electrical'].includes(item.key)?'tools':['heat','conditions'].includes(item.key)?'weather':'routes';

@@ -63,7 +63,7 @@ The server validates types, confidence ranges, unique nonnegative timestamps and
 
 Task reminders link to official OSHA topic pages for falls, ladders, scaffolds, PPE, heat, tools, silica/dust, noise, handling, excavations, vehicles, electrical hazards and housekeeping. Requests to all 15 referenced pages were blocked with proxy HTTP 403 during source checks on October 24, 2026. Review dates therefore remain null; the UI shows source review pending. These are conservative general verification prompts, not a freshly verified regulatory checklist or legal requirements. Wind/temperature review thresholds are prototype rules, not regulatory stop-work limits. Follow current site procedures, training and supervisor instructions.
 
-NWS returns an **hourly forecast**, not on-site measurements. Temperature is not heat index; forecast wind is not measured gusts. Rain is inferred from the summary, not a wet-surface sensor. Changing sliders switches back to simulation. Failed weather requests retain the prior conditions and display the failure.
+NWS returns an **hourly forecast**, not on-site measurements. Temperature is not heat index; forecast wind is not measured gusts. Precipitation probability is shown only when supplied by NWS; an absent value is unknown. Forecast precipitation never sets the worker’s wet-surface report. No wet-surface sensor or heat-index calculation is implemented. Changing sliders switches back to simulation. Failed weather requests retain the prior conditions and display the failure.
 
 ## Privacy and network
 
@@ -71,7 +71,7 @@ Preview uses local object URLs. Analysis sends imagery/video to Google, includin
 
 Worker confirmations are stored locally per task. Reset them at the start of a new job; they are worker reports, not independently verified facts. Reports are downloaded only when requested.
 
-Required HTTPS domains are `generativelanguage.googleapis.com` and `api.weather.gov`. Node startup honors environment proxy settings. The domains are saved in the onboarding configuration draft, but that does not apply or publish the policy. Live NWS requests remain blocked in the current instance.
+Required HTTPS domains are `generativelanguage.googleapis.com` and `api.weather.gov`. Node startup honors environment proxy settings. The domains are saved in the onboarding configuration draft, but that does not apply or publish the policy. A live sample request for Gainesville, Florida successfully returned an NWS hourly forecast and alert availability during v0.3 validation. Earlier setup requests were blocked; connectivity can vary by runtime and location.
 
 ## Verified technical source
 
@@ -116,10 +116,48 @@ Existing `sitesense-checks` and `sitesense-reviews-v1` storage keys intentionall
 
 ## Finding the camera / updating Render
 
-**Open live camera** appears in the page heading and at the top of Visual assessment, above the examples and illustration. It needs HTTPS and browser camera permission, not a Gemini key. The page shows App v0.2.0; `/api/status` also exposes the app version without credentials.
+**Open live camera** appears in the page heading and at the top of Visual assessment, above the examples and illustration. It needs HTTPS and browser camera permission, not a Gemini key. The page shows App v0.3.0; `/api/status` also exposes the app version without credentials.
 
 Render must deploy the `sitesense-app` branch. Check its latest deployment commit against GitHub. If automatic deployment did not run, choose Manual Deploy → Deploy latest commit. Changing account/deployment settings has not been performed by this update. After a successful deployment, reload the app. If an old offline shell remains open, use the update banner’s **Reload latest version**, or Install app → **Check for app updates**, then reload. An already installed app may also need to be closed and reopened. Do not clear all site data just to update if you want to preserve local reviews.
 
 The update banner appears when a new service worker takes control. Cache prefix and PWA identity remain stable to preserve app identity and allow old shell cleanup; public assets use a new versioned shell. APIs and uploads are never cached.
 
 Run `npm run test:tasks` for task switching, source/scope metadata, old stored-data compatibility, note opt-in/export, fresh review/recheck and mobile/desktop checks. It requires the app to be running and a Playwright browser, just like the other browser runners.
+
+## Dashboard v0.3
+
+The dashboard puts **Today’s task**, **Weather conditions**, **Needs attention**, and **Before you start** ahead of the detailed camera review and resource library. Red/charcoal styling is retained. Examples stay in How it works; they never become actual camera results. The resource library groups the selected task’s OSHA references and links to official NIOSH and NWS portals. Source review remains pending where access is blocked, and no fatality statistics have been added.
+
+### Weather and location
+
+Weather starts **unavailable**, not with assumed normal conditions. Use **Use my location** to request browser permission, or enter coordinates manually. No automatic location prompt or forecast request runs. Geolocation is rounded to three decimals for the request; manual inputs stay in memory/DOM. Coordinates are sent to this server and NWS, but are not written to local review storage or exported summaries. Browser/network access logs outside the app may contain request URLs. The app does not log coordinates itself. Forecast location uses the provider’s city/state when present; only US NWS coverage is supported.
+
+The server requests point metadata, the current/upcoming hourly forecast and active alerts. Forecast and alert failures are distinguished: an alert failure does not discard a valid forecast. Wind ranges display the upper forecast value in mph; that is not a measured gust. Humidity and precipitation probability remain unknown if missing. No heat index is calculated. Forecast periods, update times, source links and stale/unknown-age messages are visible. A three-hour update-age cutoff marks forecasts stale for this prototype; it is not an official safety rule. Alert age over ten minutes or unknown is explicitly marked for refresh, and expired/cancelled/exercise alerts are excluded.
+
+Some weather-related event names are tagged as potentially relevant to outdoor planning. Other local alerts are still shown with relevance unestablished. Neither the provider alert nor this relevance tag is a site risk assessment. Follow official instructions and the site plan. Changing any what-if control removes forecast/alert context from that scenario and labels all values simulated. The **Worker report: surface condition** selector is independent: rain probability never means a roof is actually wet.
+
+### Attention factors
+
+`public/attention.js` produces traceable items from the selected task, forecast/simulation provenance, alert status, worker confirmations and validated model/example views. Each includes evidence, source, time when available, task relevance, action, and classification. Only the first three are expanded by default. Review required, Cannot verify, Information unavailable and No additional reminder triggered are not safety certifications or accident probabilities. Wind at 20 mph and temperature at 80°F are explicitly prototype reminder triggers, not regulatory work limits. Missing data never becomes a normal-condition assertion. A worker’s confirmed checklist does not certify camera observations or fall protection.
+
+### Prepared experimental visual checks
+
+`public/visual-checks.js` defines exactly three additions: relevant work area visible, apparent opening/skylight visible, and object overlapping a visible access route. Shared definitions generate both API schemas and the validation/reminder/fixture logic. Non-null results require clear visibility, a matching evidence code and a sufficient self-reported score; a score alone is insufficient. Partial/out-of-view/unknown or poor-quality evidence becomes unknown. Unknown work area suppresses positive opening/route conclusions. None establish cover strength, compliance, exact distances, worker qualifications or future injuries.
+
+The checks are **off by default**. `GEMINI_EXTENDED_CHECKS=true` opts a later authorized model evaluation into the extra schema on photo and native agentic paths. The default validator strips those fields. Tests use scripted fixtures and mocked provider responses. No real-world detection accuracy, live model access or physical-device compatibility has been established. Prepared check descriptions are visible under Camera review so the interface does not imply they are already running.
+
+### Test commands
+
+With the app running and a Playwright Chromium browser available:
+
+```sh
+npm test
+npm run test:browser
+npm run test:camera
+npm run test:tasks
+npm run test:weather
+```
+
+The weather browser suite mocks geolocation/forecast data, tests permission denial/manual fallback, alert display, stale/failure states, precipitation versus observed wetness, simulation isolation and coordinate-free exports. The unit suites test forecast mapping, event filtering, attention traceability and both experimental provider request shapes. The mocked tests are not evidence of live provider access. Separately, one real NWS request through the running server returned a valid Gainesville hourly forecast and available alert results (zero active alerts). Live Gemini access is still unverified.
+
+The Docker image now includes `weather.js`. Docker/Render deployment has not been executed by this change. Deploy the pushed `sitesense-app` commit and look for **App v0.3.0**; a successful push does not prove Render is live.
