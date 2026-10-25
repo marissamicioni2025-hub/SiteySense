@@ -19,7 +19,7 @@ try{
  await page.locator('#briefing-text').filter({hasText:'No visual hazard assessment can be made'}).waitFor();
  assert.ok(!(await page.locator('#briefing-text').textContent()).includes('suggests proximity'));
  await page.locator('#walkthrough').evaluate(el=>el.open=true);await page.click('[data-scenario="eye-unclear"]');
- await page.locator('#briefing-text').filter({hasText:'can’t verify eye protection'}).waitFor();
+ await page.locator('#briefing-text').filter({hasText:'can’t verify eye protection'}).waitFor();assert.ok(await page.locator('#eye-illustration').isVisible());assert.ok(await page.locator('#illustration').isHidden());assert.ok(!(await page.locator('#observations').textContent()).includes('Roof edge observation'));
  await page.selectOption('#task','ladder');
  await page.locator('#briefing-text').filter({hasText:'Before ladder access'}).waitFor();
  await page.locator('#checklist input').first().check();
@@ -34,7 +34,7 @@ try{
  await page.setInputFiles('#upload',{name:'site.png',mimeType:'image/png',buffer:await page.screenshot()});
  assert.equal(await page.locator('.observation').count(),0);assert.ok(await page.locator('#example-player').isHidden());
  assert.equal(await page.locator('[data-scenario][aria-pressed="true"]').count(),0);
- assert.equal(await page.locator('#illustration').getAttribute('hidden'),'');
+ assert.equal(await page.locator('#illustration').getAttribute('hidden'),'');assert.ok(await page.locator('#eye-illustration').isHidden());
  await page.click('#analyze');await page.getByText(/Automatic analysis is unavailable here/).waitFor();
  assert.equal(analysisCalls,0);
  await page.evaluate(async()=>{await navigator.serviceWorker.ready;if(!navigator.serviceWorker.controller)await new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));});

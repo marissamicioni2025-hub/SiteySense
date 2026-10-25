@@ -25,7 +25,7 @@ const liveCamera=createLiveCamera({video:$('live-video'),open:$('live-open'),clo
  onMessage:message=>{$('live-status').textContent=message;if(state.mode==='upload'&&!upload){const active=!!$('live-video').srcObject;$('mode-badge').textContent=active?'LIVE PREVIEW':'CAMERA NOT CONNECTED';$('scene-label').textContent=active?'LIVE CAMERA · LOCAL PREVIEW ONLY':'CAMERA NOT CONNECTED · NO ANALYSIS';}}
 });
 $('camera-shortcut').onclick=()=>{$('visual').scrollIntoView({behavior:'smooth',block:'start'});$('live-open').click();};
-const liveReview=createLiveReview({video:$('live-video'),start:$('start-live-review'),stop:$('stop-live-review'),status:$('live-review-status'),consent:$('consent'),accessCode:$('live-access-code'),
+const liveReview=createLiveReview({video:$('live-video'),start:$('start-live-review'),stop:$('stop-live-review'),status:$('live-review-status'),stage:$('live-review-stage'),consent:$('consent'),accessCode:$('live-access-code'),
  onClear:()=>{delete state.liveCheckedAt;state.mode='upload';clearScenarioSelection();state.observations=[];delete state.detections;delete state.processing;delete state.model;visualSummary='Connecting to Gemini Live. No frame result is available yet.';$('mode-badge').textContent='LIVE · CONNECTING';$('scene-label').textContent='LIVE CAMERA · NO CURRENT AI RESULT';$('analysis-message').textContent=visualSummary;render();},
  onResult:message=>{state.mode='model';state.model=message.model;state.detections=[message.frame];state.observations=assess(state).visionReminders;state.liveCheckedAt=message.checkedAt;visualSummary='Gemini Live checked one sampled frame at '+new Date(message.checkedAt).toLocaleTimeString()+'.';$('mode-badge').textContent='LIVE · LAST FRAME';$('scene-label').textContent='LAST FRAME CHECKED · '+new Date(message.checkedAt).toLocaleTimeString();$('analysis-message').textContent=visualSummary+' The moving preview is not a continuous safety assessment.';render();}
 });
@@ -92,10 +92,10 @@ $('task').onchange=()=>{state.task=$('task').value;$('review-note').value='';$('
 for(const id of ['temp','wind','rain'])$(id).oninput=()=>{state.temperature=Number($('temp').value);state.wind=Number($('wind').value);state.rain=$('rain').checked;weatherControls.simulationChanged();render();};
 $('surface-status').onchange=()=>{state.surfaceStatus=$('surface-status').value;render();};
 
-function clearMedia(){stopExamplePlayback();delete state.liveCheckedAt;liveCamera.stop();stopCamera();recordedDuration=null;$('coverage').hidden=true;$('coverage').textContent='';if(objectURL)URL.revokeObjectURL(objectURL);objectURL=null;upload=null;$('upload').value='';$('video').pause();$('video').removeAttribute('src');$('video').load();$('photo').removeAttribute('src');$('video').hidden=true;$('photo').hidden=true;}
+function clearMedia(){$('eye-illustration').toggleAttribute('hidden',true);stopExamplePlayback();delete state.liveCheckedAt;liveCamera.stop();stopCamera();recordedDuration=null;$('coverage').hidden=true;$('coverage').textContent='';if(objectURL)URL.revokeObjectURL(objectURL);objectURL=null;upload=null;$('upload').value='';$('video').pause();$('video').removeAttribute('src');$('video').load();$('photo').removeAttribute('src');$('video').hidden=true;$('photo').hidden=true;}
 function demo(id='roof-edge'){
- const scenario=getScenario(id);exampleStep=0;$('example-player').hidden=false;$('walkthrough').open=false;clearMedia();state.mode='demo';state.scenarioId=id;state.detections=scenario.detections;state.observations=scenario.observations;delete state.processing;delete state.model;
- $('illustration').toggleAttribute('hidden',false);$('illustration').style.filter=scenario.dim?'brightness(.15) blur(4px)':'';
+ const scenario=getScenario(id);exampleStep=0;$('example-player').hidden=false;$('walkthrough').open=false;clearMedia();state.mode='demo';state.scenarioId=id;state.exampleFocus=scenario.focus;state.detections=scenario.detections;state.observations=scenario.observations;delete state.processing;delete state.model;
+ $('illustration').toggleAttribute('hidden',id==='eye-unclear');$('eye-illustration').toggleAttribute('hidden',id!=='eye-unclear');$('illustration').style.filter=scenario.dim?'brightness(.15) blur(4px)':'';
  $('scene-note').hidden=scenario.dim;$('scene-note').replaceChildren();const title=document.createElement('span');title.textContent=scenario.title;const small=document.createElement('small');small.textContent='Illustrated walkthrough';$('scene-note').append(title,small);
  visualSummary=scenario.summary;$('scene-label').textContent='ILLUSTRATION · SCRIPTED EXAMPLE';$('mode-badge').textContent='SCRIPTED EXAMPLE';
  $('scenario-description').textContent='Scripted example — not an analysis of your camera. '+scenario.summary+' '+scenario.limitation;
@@ -112,6 +112,7 @@ function showExampleStep(index){
  $('example-step-title').textContent=steps[exampleStep].title;$('example-step-body').textContent=steps[exampleStep].body;$('example-step-count').textContent=(exampleStep+1)+' of '+steps.length;
  $('example-prev').disabled=exampleStep===0;$('example-next').disabled=false;$('example-next').textContent=exampleStep===steps.length-1?'Start again ↺':'Next →';
  for(const [i,button] of [...$('timeline').children].entries())button.setAttribute('aria-pressed',String(i===exampleStep));
+ $('eye-obstruction').setAttribute('transform','translate('+([0,25,-10][exampleStep])+',0)');
  $('example-worker').setAttribute('transform','translate('+([-65,55,-15][exampleStep])+',0)');$('example-worker').style.opacity=state.scenarioId==='eye-unclear'&&exampleStep===1?'.5':'1';
  $('scene-label').textContent='ILLUSTRATED EXAMPLE · STEP '+(exampleStep+1)+' OF '+steps.length;
  $('scene-note').querySelector('small')?.replaceChildren(document.createTextNode('Walkthrough step '+(exampleStep+1)+' of '+steps.length));
@@ -129,7 +130,7 @@ $('example-play').onclick=()=>{
 $('example-change').onclick=()=>{stopExamplePlayback();$('walkthrough').open=true;$('scenario-options').scrollIntoView({behavior:'smooth',block:'center'});$('scenario-options').querySelector('button').focus({preventScroll:true});};
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopExamplePlayback();});
 $('demo').onclick=()=>demo();$('dim').onclick=()=>demo('poor-light');
-function clearScenarioSelection(){$('example-player').hidden=true;delete state.scenarioId;for(const button of $('scenario-options').children)button.setAttribute('aria-pressed','false');$('scenario-description').textContent='Your upload is separate from the scripted scenarios. Choose an example above to return to the illustrated walkthrough.';}
+function clearScenarioSelection(){$('example-player').hidden=true;delete state.scenarioId;delete state.exampleFocus;for(const button of $('scenario-options').children)button.setAttribute('aria-pressed','false');$('scenario-description').textContent='Your upload is separate from the scripted scenarios. Choose an example above to return to the illustrated walkthrough.';}
 function selectFile(file,duration=null){
  if(!file)return;
  if(file.size>40*1024*1024){$('analysis-message').textContent='Please choose a file under 40 MB.';return;}
@@ -197,7 +198,7 @@ $('analyze').onclick=async()=>{
  finally{setBusy(false);}
 };
 $('brief').onclick=()=>{if(!('speechSynthesis'in window)){$('speech-status').textContent='Speech is unavailable in this browser. Read the briefing below.';return;}speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(briefing);utterance.rate=.95;utterance.onstart=()=>{$('speech-status').textContent='Speaking briefing…';};utterance.onend=()=>{$('speech-status').textContent='Briefing complete.';};utterance.onerror=()=>{$('speech-status').textContent='Speech could not play. Read the briefing above.';};speechSynthesis.speak(utterance);};
-api('/api/status').then(s=>{visionConfigured=s.visionConfigured;liveReview.configure(s.liveEnabled);$('experimental-status').textContent=s.extendedChecks?'Experimental schema enabled on server. Accuracy remains untested; structured observations require review.':'Prepared checks are off by default. No live model performance has been evaluated.';$('vision-status').textContent=s.visionConfigured?'Vision model configured':'Camera & task checklists';}).catch(()=>{$('vision-status').textContent='Offline workspace · AI needs connection';});
+api('/api/status').then(s=>{visionConfigured=s.visionConfigured;liveReview.configure(s.liveEnabled,s.liveModel);$('experimental-status').textContent=s.extendedChecks?'Experimental schema enabled on server. Accuracy remains untested; structured observations require review.':'Prepared checks are off by default. No live model performance has been evaluated.';$('vision-status').textContent=s.visionConfigured?'Vision model configured':'Camera & task checklists';}).catch(()=>{$('vision-status').textContent='Offline workspace · AI needs connection';});
 $('scenario-description').textContent='Scripted examples explain the workflow. They never analyze or describe your camera.';render();
 
 $('stop-speech').onclick=()=>{if('speechSynthesis'in window)speechSynthesis.cancel();$('speech-status').textContent='Audio stopped.';};

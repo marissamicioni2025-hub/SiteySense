@@ -2,6 +2,15 @@ import {createHash,timingSafeEqual} from 'node:crypto';
 import {GoogleGenAI} from '@google/genai';
 import {WebSocketServer,WebSocket} from 'ws';
 import {validateDetections,visionSchema} from './vision.js';
+export function liveFailure(error){
+ const status=Number(error?.status||error?.statusCode||error?.code);const detail=String(error?.message||error?.reason||'').toLowerCase();
+ if(status===401||/api key not valid|invalid api key|unauthenticated/.test(detail))return {code:'LIVE_AUTHENTICATION',message:'Google did not accept the server API key. Check GEMINI_API_KEY in Render.'};
+ if(status===403||/permission|access denied|not authorized/.test(detail))return {code:'LIVE_PERMISSION',message:'Google denied access to the configured Live model. Check project permissions, region, billing and model availability.'};
+ if(status===404||/not[_ ]found|not supported.*model|model.*not supported|unsupported.*model|model.*unsupported|unknown model|model.*does not exist/.test(detail))return {code:'LIVE_MODEL',message:'The configured Live model is unavailable. Set GEMINI_LIVE_MODEL to a Live model your Google project supports.'};
+ if(status===429||/quota|resource[_ ]exhausted|rate[_ ]limit/.test(detail))return {code:'LIVE_QUOTA',message:'Google reported a quota or rate limit. Check project usage and billing before starting another session.'};
+ if(status===400||/invalid argument|invalid config/.test(detail))return {code:'LIVE_CONFIGURATION',message:'Google rejected the Live request configuration. Share this error code and the configured model name, without credentials.'};
+ return {code:'LIVE_CONNECTION',message:'Could not establish Gemini Live. Check server model access and outbound WebSocket connectivity.'};
+}
 export function liveConfig(){
  const frame=visionSchema.properties.frames.items;
  return {responseModalities:['AUDIO'],
@@ -25,8 +34,8 @@ export function attachLive(server,{apiKey,accessCode,enabled=false,model='gemini
  const started=Date.now();
  const send=value=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(value));};
  function cleanup(){if(closed)return;closed=true;clearTimeout(sessionTimer);clearTimeout(responseTimer);clearTimeout(authTimer);clearTimeout(connectTimer);try{session?.close();}catch{}session=null;}
- function finish(message){send({type:'error',message});ws.close(1000,'Session ended');cleanup();}
- const authTimer=setTimeout(()=>finish('Live authorization timed out.'),10000);
+ function finish(message,code='LIVE_SESSION'){send({type:'error',message,code});ws.close(1000,'Session ended');cleanup();}
+ const authTimer=setTimeout(()=>finish('Gemini Live session-code authorization timed out.','LIVE_SESSION_CODE'),10000);
  const sessionTimer=setTimeout(()=>finish('Live session ended at its time limit. Start a new session only when you want to send more footage.'),sessionMs);
  ws.on('close',cleanup);ws.on('error',cleanup);
  async function messageFromModel(message){
@@ -46,9 +55,9 @@ export function attachLive(server,{apiKey,accessCode,enabled=false,model='gemini
  if(closed)return;
  let message;try{message=JSON.parse(raw.toString());}catch{return finish('Invalid Live request.');}
  if(!authorized){
- if(message.type!=='authorize'||typeof message.code!=='string'||message.code.length>256)return finish('Live access code required.');
+ if(message.type!=='authorize'||typeof message.code!=='string'||message.code.length>256)return finish('Gemini Live session code required.','LIVE_SESSION_CODE');
  const digest=value=>createHash('sha256').update(value).digest();
- if(!timingSafeEqual(digest(message.code),digest(accessCode)))return finish('Live access code was not accepted.');
+ if(!timingSafeEqual(digest(message.code),digest(accessCode)))return finish('Gemini Live session code was not accepted. Use the value set as SITEYSENSE_LIVE_CODE in Render.','LIVE_SESSION_CODE');
  authorized=true;clearTimeout(authTimer);connectToGemini();return;
  }
  if(message.type==='stop'){ws.close(1000,'User stopped');cleanup();return;}
@@ -64,11 +73,12 @@ export function attachLive(server,{apiKey,accessCode,enabled=false,model='gemini
  }catch{finish('The frame could not be sent to Gemini Live. No assessment was made.');}
  });
  function connectToGemini(){
+ send({type:'connecting',model});
  connectTimer=setTimeout(()=>finish('Gemini Live did not connect in time. Check model access and network settings.'),15000);
  const connector=connect||((options)=>new GoogleGenAI({apiKey}).live.connect(options));
- Promise.resolve().then(()=>connector({model,config:liveConfig(),callbacks:{onmessage:messageFromModel,onerror:()=>finish('Gemini Live connection failed. Check model access and network connectivity.'),onclose:()=>{if(!closed)finish('Gemini Live disconnected. No continuous monitoring is active.');}}})).then(value=>{
+ Promise.resolve().then(()=>connector({model,config:liveConfig(),callbacks:{onmessage:messageFromModel,onerror:error=>{const failure=liveFailure(error);finish(failure.message,failure.code);},onclose:event=>{if(!closed){const failure=liveFailure(event);finish(failure.message,failure.code);}}}})).then(value=>{
  if(closed){value.close();return;}clearTimeout(connectTimer);session=value;send({type:'connected',model,sessionSeconds:Math.round(sessionMs/1000),frameIntervalMs,maxFrames});send({type:'ready'});
- }).catch(()=>finish('Could not connect to Gemini Live. Check the configured key, Live model access, quota and network.'));
+ }).catch(error=>{const failure=liveFailure(error);finish(failure.message,failure.code);});
  }
  });
  return wss;

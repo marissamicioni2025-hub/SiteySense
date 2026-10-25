@@ -3,8 +3,8 @@ import {forecastState} from './weather-state.js';
 import {decideReminder} from './reminders.js';
 import {topics,getTask} from './tasks.js';
 export const guidance=topics;
-export function assess({task='roofing',temperature=85,wind=8,rain=false,observations=[],detections,weatherSource,weatherData,surfaceStatus}) {
- const visionReminders=detections?detections.flatMap(decideReminder):[];
+export function assess({task='roofing',temperature=85,wind=8,rain=false,observations=[],detections,weatherSource,weatherData,surfaceStatus,mode,exampleFocus}) {
+ const visionReminders=(detections?detections.flatMap(decideReminder):[]).filter(item=>mode!=='demo'||!exampleFocus||item.category===exampleFocus);
  const experimentalReminders=detections?detections.flatMap(additionalReminders):[];
  if(detections)observations=visionReminders;
  const definition=getTask(task)||getTask('roofing');

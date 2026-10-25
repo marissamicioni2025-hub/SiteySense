@@ -209,3 +209,11 @@ For the first real session, use a permitted, clear view in a controlled setting.
 Choosing an example now collapses the chooser and brings the walkthrough into view. Previous/Next changes the explanation and the worker illustration; the last step offers Start again. Play example advances the three illustrated steps at four seconds each, with pause/replay and reduced-motion support. It is not a video recording, model response or analysis of the user's camera. Switching to a camera/upload or backgrounding stops playback. This behavior is tested in `npm run test:browser` with a controlled browser clock.
 
 A GitHub rename to `siteysense` was requested, but the repository API returned Forbidden in this workspace. No rename has been performed. The owner can use GitHub → repository Settings → Repository name → siteysense. Update Git remotes and any hosting source URL after confirming the rename; do not create a duplicate repository or reset history.
+
+## Example clarity and Live setup — v0.4.2
+
+Eye-protection uncertainty now uses its own close-up illustration with an obscured eye area, rather than the roof-edge picture. Its scripted walkthrough focuses on eye protection; the edge example focuses on edge proximity. This focus filter applies only to explicitly scripted examples, never real model results. The player still supports step navigation and play/pause/replay, and uploaded media/camera views hide both illustrations.
+
+The input is labeled **Gemini Live session code**, with the helper “Use the code you set in Render as SITEYSENSE_LIVE_CODE.” It is an app session code chosen by the owner, not a separate credential issued by Google. The upload-permission checkbox is now immediately above the Live controls. A pasted user page showed the flow stopped at that consent check before any Gemini connection attempt.
+
+The Live stage display distinguishes camera permission, upload permission, session-code entry, connecting to SiteySense, connecting to Google and receiving a structured result. Provider errors map to fixed diagnostic codes for authentication, model availability, permissions, quota and request configuration. Raw provider errors or credentials are never displayed. A real Google Live connection has still not been verified in this workspace; the stage/error shown after confirming consent is the next useful diagnostic.
