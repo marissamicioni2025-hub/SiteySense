@@ -36,3 +36,5 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.u
 @media(max-width:1100px){.setup-row #checklist{grid-template-columns:1fr}.setup-row,.review-workspace,.reference-row{gap:16px}.review-workspace .scene{height:280px}}
 @media(max-width:900px){.setup-row,.review-workspace,.reference-row{grid-template-columns:1fr}.dashboard-layout{gap:20px}.review-results{gap:16px}.review-workspace .scene{height:280px}.setup-row #checklist{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){.setup-row #checklist{grid-template-columns:1fr}.review-workspace .scene{height:240px}}
+
+.gemini-live-controls .live-controls{width:100%;padding:12px 0;display:flex;flex-wrap:wrap;gap:10px;border:0}.gemini-live-controls .live-preference{width:100%;display:flex;gap:9px;align-items:center;font-size:12px}.live-preference input{accent-color:var(--accent)}#live-spoken-text{padding:12px;border-left:3px solid var(--accent);background:#fff5f6}

@@ -1,3 +1,4 @@
+import {createLiveNarration} from './live-narration.js';
 import {taskVisionChecks,taskVisionResults} from './task-vision.js';
 import {createSpeechControls} from './speech.js';
 import {createLiveReview} from './live-review.js';
@@ -22,21 +23,23 @@ let briefing='', recorder=null, cameraStream=null, recordTimer=null, recordedDur
 let visualSummary='Visual conditions have not been confirmed.';
 let latestGuidance=[],visionConfigured=null;
 const speechControls=createSpeechControls({voiceSelect:$('briefing-voice'),rateSelect:$('briefing-rate'),preview:$('preview-voice'),status:$('speech-status')});
+const liveNarration=createLiveNarration({speech:speechControls,enabled:$('live-audio'),output:$('live-spoken-text')});
+$('live-audio').onchange=()=>{if(!$('live-audio').checked)speechControls.stop();};
 const weatherControls=createWeatherControls({state,onChange:render,request:api});
 const liveCamera=createLiveCamera({video:$('live-video'),open:$('live-open'),close:$('live-close'),flip:$('live-flip'),snapshot:$('live-snapshot'),onBusy:setBusy,
  onStart:()=>{clearMedia();state.mode='upload';clearScenarioSelection();state.observations=[];delete state.detections;delete state.processing;delete state.model;visualSummary='Live camera preview only. No visual assessment has been made.';$('illustration').toggleAttribute('hidden',true);$('scene-note').hidden=true;$('scene-label').textContent='LIVE CAMERA · LOCAL PREVIEW ONLY';$('mode-badge').textContent='LIVE PREVIEW';$('analysis-message').textContent='Camera preview does not detect hazards. Capture a frame or record a clip for a separate review.';render();},
  onMessage:message=>{$('live-status').textContent=message;if(state.mode==='upload'&&!upload){const active=!!$('live-video').srcObject;$('mode-badge').textContent=active?'LIVE PREVIEW':'CAMERA NOT CONNECTED';$('scene-label').textContent=active?'LIVE CAMERA · LOCAL PREVIEW ONLY':'CAMERA NOT CONNECTED · NO ANALYSIS';}}
 });
 $('camera-shortcut').onclick=()=>{$('visual').scrollIntoView({behavior:'smooth',block:'start'});$('live-open').click();};
-const liveReview=createLiveReview({getTask:()=>state.task,video:$('live-video'),start:$('start-live-review'),stop:$('stop-live-review'),status:$('live-review-status'),stage:$('live-review-stage'),consent:$('consent'),accessCode:$('live-access-code'),
+const liveReview=createLiveReview({getTask:()=>state.task,getFirstPerson:()=>$('first-person-view').checked,onStart:()=>liveNarration.start(),onEnd:()=>liveNarration.stop(),video:$('live-video'),start:$('start-live-review'),stop:$('stop-live-review'),status:$('live-review-status'),stage:$('live-review-stage'),consent:$('consent'),accessCode:$('live-access-code'),
  onClear:()=>{delete state.liveCheckedAt;state.mode='upload';clearScenarioSelection();state.observations=[];delete state.detections;delete state.processing;delete state.model;visualSummary='Connecting to Gemini Live. No frame result is available yet.';$('mode-badge').textContent='LIVE · CONNECTING';$('scene-label').textContent='LIVE CAMERA · NO CURRENT AI RESULT';$('analysis-message').textContent=visualSummary;render();},
- onResult:message=>{if(message.task&&message.task!==state.task)return;state.mode='model';state.model=message.model;state.detections=[message.frame];state.observations=assess(state).visionReminders;state.liveCheckedAt=message.checkedAt;visualSummary='Gemini Live checked one sampled frame at '+new Date(message.checkedAt).toLocaleTimeString()+'.';$('mode-badge').textContent='LIVE · LAST FRAME';$('scene-label').textContent='LAST FRAME CHECKED · '+new Date(message.checkedAt).toLocaleTimeString();$('analysis-message').textContent=visualSummary+' The moving preview is not a continuous safety assessment.';render();}
+ onResult:message=>{if(message.task&&message.task!==state.task)return;state.mode='model';state.model=message.model;state.detections=[message.frame];state.observations=assess(state).visionReminders;state.liveCheckedAt=message.checkedAt;state.firstPerson=$('first-person-view').checked;visualSummary='Gemini Live checked one sampled frame at '+new Date(message.checkedAt).toLocaleTimeString()+'.';$('mode-badge').textContent='LIVE · LAST FRAME';$('scene-label').textContent='LAST FRAME CHECKED · '+new Date(message.checkedAt).toLocaleTimeString();$('analysis-message').textContent=visualSummary+' The moving preview is not a continuous safety assessment.';render();liveNarration.update(message,state.task,state.firstPerson);}
 });
 $('live-snapshot').addEventListener('camera:frame',event=>{selectFile(event.detail);$('live-status').textContent='Frame captured locally. Preview stopped. The image has not been analyzed or uploaded.';});
 async function render(){
  const version=++generation;
  weatherControls.render();
- const activeChecks=taskVisionChecks(state.task);$('live-check-scope').textContent='Checking for: visible activity, eye-protection visibility'+(['roofing','scaffold'].includes(state.task)?', exposed-edge proximity':'')+(activeChecks.length?', '+activeChecks.map(c=>c.label.toLowerCase()).join(', '):'. Detailed task checks require worker confirmation')+'. Task checks are experimental; accuracy has not been evaluated.';
+ const activeChecks=taskVisionChecks(state.task);$('live-check-scope').textContent='Checking for: visible activity'+($('first-person-view').checked?' in your surroundings; wearer PPE requires manual confirmation':', eye-protection visibility')+(['roofing','scaffold'].includes(state.task)?', exposed-edge proximity':'')+(activeChecks.length?', '+activeChecks.map(c=>c.label.toLowerCase()).join(', '):'. Detailed task checks require worker confirmation')+'. Task checks are experimental; accuracy has not been evaluated.';
  $('live-task-results').replaceChildren(...(state.liveCheckedAt?taskVisionResults(state.task,state.detections?.[0]||{}):[]).map(item=>{const p=document.createElement('p');p.textContent=item.text;return p;}));
  $('temp-value').textContent=Number.isFinite(state.temperature)?state.temperature+'°F':'Not set';$('wind-value').textContent=Number.isFinite(state.wind)?state.wind+' mph':'Not set';
  $('timeline').replaceChildren();
@@ -205,7 +208,8 @@ $('brief').onclick=()=>speechControls.speak(briefing);
 api('/api/status').then(s=>{visionConfigured=s.visionConfigured;liveReview.configure(s.liveEnabled,s.liveModel);$('experimental-status').textContent=s.extendedChecks?'Experimental schema enabled on server. Accuracy remains untested; structured observations require review.':'Prepared checks are off by default. No live model performance has been evaluated.';$('vision-status').textContent=s.visionConfigured?'Vision model configured':'Camera & task checklists';}).catch(()=>{$('vision-status').textContent='Offline workspace · AI needs connection';});
 $('scenario-description').textContent='Scripted examples explain the workflow. They never analyze or describe your camera.';render();
 
-$('stop-speech').onclick=()=>speechControls.stop();
+$('stop-speech').onclick=()=>{$('live-audio').checked=false;speechControls.stop();};
+$('first-person-view').onchange=()=>{liveReview.stop('View mode changed. Restart Gemini Live to use this perspective.');delete state.liveCheckedAt;delete state.detections;state.mode='task';$('live-scene-result').textContent='View mode changed. Restart Live for fresh observations.';render();};
 $('download-report').onclick=()=>{
  const report={attention:attentionFactors(state,readTaskChecks(state.task,checks[state.task])),project:'SiteySense AI',created:new Date().toISOString(),task:state.task,mode:state.mode,scenarioId:state.scenarioId||null,liveCheckedAt:state.liveCheckedAt||null,note:$('review-note').value.trim(),visualSummary,conditions:sanitizeWeatherReport(state),detections:state.detections||[],processing:state.processing||null,visionModel:state.model||null,observations:state.observations,taskLabel:getTask(state.task).label,checklist:getTask(state.task).checks,workerConfirmations:readTaskChecks(state.task,checks[state.task]),briefing,guidance:latestGuidance,limitation:'Decision support only. Not an all-clear. No injury probability, compliance certification, or comprehensive video coverage.'};
  $('speech-status').textContent='Summary downloaded. No review history is saved in the app.';
