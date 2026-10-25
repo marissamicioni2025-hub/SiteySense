@@ -161,3 +161,9 @@ npm run test:weather
 The weather browser suite mocks geolocation/forecast data, tests permission denial/manual fallback, alert display, stale/failure states, precipitation versus observed wetness, simulation isolation and coordinate-free exports. The unit suites test forecast mapping, event filtering, attention traceability and both experimental provider request shapes. The mocked tests are not evidence of live provider access. Separately, one real NWS request through the running server returned a valid Gainesville hourly forecast and available alert results (zero active alerts). Live Gemini access is still unverified.
 
 The Docker image now includes `weather.js`. Docker/Render deployment has not been executed by this change. Deploy the pushed `sitesense-app` commit and look for **App v0.3.0**; a successful push does not prove Render is live.
+
+## Click-through examples
+
+Examples now use titles such as **Example of an edge review**. Select an example and use Previous/Next or its step buttons to move through “Show the work area”, “Understand the observation”, and “Verify the precaution”. They are illustrated walkthroughs, not video files, so the old non-playing 3/6/9-second labels have been removed. Actual uploaded-video reviews retain real timestamp seeking. Switching to a camera or upload hides the example player and clears example results.
+
+Live camera preview is separate from live model analysis. An authorized Gemini key enables the existing photo/clip analysis paths; continuous periodic live-frame checks are not implemented by simply adding a key. Such a workflow still needs explicit upload permission, start/stop controls, bounded request frequency, one in-flight request, stale-result timestamps, cancellation and evaluation on real footage. No continuous AI monitoring or safety certification is claimed.

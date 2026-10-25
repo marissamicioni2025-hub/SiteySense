@@ -6,9 +6,9 @@ import './platform.js';
 import {createWeatherControls} from './weather-ui.js';
 import {sanitizeWeatherReport} from './weather-state.js';
 import {createLiveCamera} from './live-camera.js';
-import {scenarios,getScenario} from './scenarios.js';
+import {scenarios,getScenario,walkthroughSteps} from './scenarios.js';
 const $=id=>document.getElementById(id);
-let state={task:'roofing',temperature:null,wind:null,rain:false,surfaceStatus:'unknown',observations:[],mode:'task',weatherSource:'unavailable',weatherData:null,weatherStatus:'idle'},upload=null,objectURL=null,generation=0;
+let state={task:'roofing',temperature:null,wind:null,rain:false,surfaceStatus:'unknown',observations:[],mode:'task',weatherSource:'unavailable',weatherData:null,weatherStatus:'idle'},upload=null,objectURL=null,generation=0,exampleStep=0;
 $('task').replaceChildren(...tasks.map(task=>{const option=document.createElement('option');option.value=task.id;option.textContent=task.label;return option;}));
 for(const scenario of scenarios){const button=document.createElement('button');button.type='button';button.dataset.scenario=scenario.id;button.innerHTML=`<strong>${scenario.title}</strong><span>${scenario.subtitle}</span>`;button.onclick=()=>demo(scenario.id);$('scenario-options').append(button);}
 for(const check of visualChecks){const p=document.createElement('p');p.className='fine';p.textContent=check.title+': '+check.canObserve+' Cannot establish: '+check.cannotEstablish;$('visual-capabilities').append(p);}
@@ -31,12 +31,14 @@ async function render(){
  weatherControls.render();
  $('temp-value').textContent=Number.isFinite(state.temperature)?state.temperature+'°F':'Not set';$('wind-value').textContent=Number.isFinite(state.wind)?state.wind+' mph':'Not set';
  $('timeline').replaceChildren();
- for(const time of [...new Set((state.detections||[]).map(d=>d.time))]){
+ if(state.mode==='demo'){
+ const steps=walkthroughSteps(getScenario(state.scenarioId));steps.forEach((step,index)=>{const button=document.createElement('button');button.textContent='Step '+(index+1);button.setAttribute('aria-pressed',String(index===exampleStep));button.onclick=()=>showExampleStep(index);$('timeline').append(button);});
+ }else for(const time of [...new Set((state.detections||[]).map(d=>d.time))]){
  const button=document.createElement('button');button.textContent=time.toFixed(1)+'s';button.type='button';button.title='Jump to reviewed moment';button.disabled=$('video').hidden;
  button.onclick=()=>{$('video').currentTime=time;$('video').scrollIntoView({behavior:'smooth',block:'center'});};$('timeline').append(button);
  }
  $('observations').replaceChildren();
- for(const o of state.observations){const div=document.createElement('div');div.className='observation';div.innerHTML=`<span class="timestamp">${state.mode==='demo'?'EXAMPLE · ':''}${o.time}s</span><strong>↗ ${escape({edge:'Roof edge observation',ladder:'Ladder observation',ppe:'Equipment visibility'}[o.category]||o.category)}</strong><p>${escape(o.evidence)}</p>`;$('observations').append(div);}
+ for(const o of state.observations){const div=document.createElement('div');div.className='observation';div.innerHTML=`<span class="timestamp">${state.mode==='demo'?'SCRIPTED EXAMPLE':o.time+'s'}</span><strong>↗ ${escape({edge:'Roof edge observation',ladder:'Ladder observation',ppe:'Equipment visibility'}[o.category]||o.category)}</strong><p>${escape(o.evidence)}</p>`;$('observations').append(div);}
  try{
  const result=assess(state);if(version!==generation)return;
  latestGuidance=result.guidance;
@@ -87,17 +89,27 @@ $('surface-status').onchange=()=>{state.surfaceStatus=$('surface-status').value;
 
 function clearMedia(){liveCamera.stop();stopCamera();recordedDuration=null;$('coverage').hidden=true;$('coverage').textContent='';if(objectURL)URL.revokeObjectURL(objectURL);objectURL=null;upload=null;$('upload').value='';$('video').pause();$('video').removeAttribute('src');$('video').load();$('photo').removeAttribute('src');$('video').hidden=true;$('photo').hidden=true;}
 function demo(id='roof-edge'){
- const scenario=getScenario(id);$('walkthrough').open=true;clearMedia();state.mode='demo';state.scenarioId=id;state.detections=scenario.detections;state.observations=scenario.observations;delete state.processing;delete state.model;
+ const scenario=getScenario(id);exampleStep=0;$('example-player').hidden=false;$('walkthrough').open=true;clearMedia();state.mode='demo';state.scenarioId=id;state.detections=scenario.detections;state.observations=scenario.observations;delete state.processing;delete state.model;
  $('illustration').toggleAttribute('hidden',false);$('illustration').style.filter=scenario.dim?'brightness(.15) blur(4px)':'';
- $('scene-note').hidden=scenario.dim;$('scene-note').replaceChildren();const title=document.createElement('span');title.textContent=scenario.title;const small=document.createElement('small');small.textContent='Scripted moment · '+scenario.time+'s';$('scene-note').append(title,small);
- visualSummary=scenario.summary;$('scene-label').textContent='ILLUSTRATION · SCRIPTED EXAMPLE · '+scenario.time+'s';$('mode-badge').textContent='SCRIPTED EXAMPLE';
+ $('scene-note').hidden=scenario.dim;$('scene-note').replaceChildren();const title=document.createElement('span');title.textContent=scenario.title;const small=document.createElement('small');small.textContent='Illustrated walkthrough';$('scene-note').append(title,small);
+ visualSummary=scenario.summary;$('scene-label').textContent='ILLUSTRATION · SCRIPTED EXAMPLE';$('mode-badge').textContent='SCRIPTED EXAMPLE';
  $('scenario-description').textContent='Scripted example — not an analysis of your camera. '+scenario.summary+' '+scenario.limitation;
  $('analysis-message').textContent=scenario.summary+' This example does not describe your camera or upload.';
  for(const button of $('scenario-options').children)button.setAttribute('aria-pressed',String(button.dataset.scenario===id));
+ showExampleStep(0);
  render();
 }
+function showExampleStep(index){
+ if(state.mode!=='demo')return;
+ const steps=walkthroughSteps(getScenario(state.scenarioId));exampleStep=Math.max(0,Math.min(steps.length-1,index));
+ $('example-step-title').textContent=steps[exampleStep].title;$('example-step-body').textContent=steps[exampleStep].body;$('example-step-count').textContent=(exampleStep+1)+' of '+steps.length;
+ $('example-prev').disabled=exampleStep===0;$('example-next').disabled=exampleStep===steps.length-1;
+ for(const [i,button] of [...$('timeline').children].entries())button.setAttribute('aria-pressed',String(i===exampleStep));
+ $('scene-note').querySelector('small')?.replaceChildren(document.createTextNode('Walkthrough step '+(exampleStep+1)+' of '+steps.length));
+}
+$('example-prev').onclick=()=>showExampleStep(exampleStep-1);$('example-next').onclick=()=>showExampleStep(exampleStep+1);
 $('demo').onclick=()=>demo();$('dim').onclick=()=>demo('poor-light');
-function clearScenarioSelection(){delete state.scenarioId;for(const button of $('scenario-options').children)button.setAttribute('aria-pressed','false');$('scenario-description').textContent='Your upload is separate from the scripted scenarios. Choose an example above to return to the illustrated walkthrough.';}
+function clearScenarioSelection(){$('example-player').hidden=true;delete state.scenarioId;for(const button of $('scenario-options').children)button.setAttribute('aria-pressed','false');$('scenario-description').textContent='Your upload is separate from the scripted scenarios. Choose an example above to return to the illustrated walkthrough.';}
 function selectFile(file,duration=null){
  if(!file)return;
  if(file.size>40*1024*1024){$('analysis-message').textContent='Please choose a file under 40 MB.';return;}
@@ -148,7 +160,7 @@ async function videoPayload(){
 }
 $('analyze').onclick=async()=>{
  if(!upload){$('analysis-message').textContent='Upload a photo or short video first. Demo scenarios do not use a model.';return;}
- if(visionConfigured===false||!navigator.onLine){$('analysis-message').textContent='Automatic analysis is unavailable here. Your upload has not been analyzed. Explore a scripted example above to continue without a key or connection.';$('demo-picker').scrollIntoView({behavior:'smooth',block:'center'});return;}
+ if(visionConfigured===false||!navigator.onLine){$('analysis-message').textContent='Automatic analysis is unavailable here. Your upload has not been analyzed. Explore a scripted example above to continue.';$('demo-picker').scrollIntoView({behavior:'smooth',block:'center'});return;}
  if(!$('consent').checked){$('analysis-message').textContent='Please confirm permission to send this footage to Google before analyzing.';$('consent').focus();return;}
  const agentic=upload.type.startsWith('video')&&$('review-mode').value==='agentic';
  setBusy(true);state.observations=[];delete state.detections;delete state.processing;delete state.model;state.mode='upload';visualSummary='Review in progress. No visual conditions confirmed.';render();
@@ -165,7 +177,7 @@ $('analyze').onclick=async()=>{
  finally{setBusy(false);}
 };
 $('brief').onclick=()=>{if(!('speechSynthesis'in window)){$('speech-status').textContent='Speech is unavailable in this browser. Read the briefing below.';return;}speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(briefing);utterance.rate=.95;utterance.onstart=()=>{$('speech-status').textContent='Speaking briefing…';};utterance.onend=()=>{$('speech-status').textContent='Briefing complete.';};utterance.onerror=()=>{$('speech-status').textContent='Speech could not play. Read the briefing above.';};speechSynthesis.speak(utterance);};
-api('/api/status').then(s=>{visionConfigured=s.visionConfigured;$('experimental-status').textContent=s.extendedChecks?'Experimental schema enabled on server. Accuracy remains untested; structured observations require review.':'Prepared checks are off by default. No live model performance has been evaluated.';$('vision-status').textContent=s.visionConfigured?'Vision model configured':'Camera & checklists · no key needed';}).catch(()=>{$('vision-status').textContent='Offline workspace · AI needs connection';});
+api('/api/status').then(s=>{visionConfigured=s.visionConfigured;$('experimental-status').textContent=s.extendedChecks?'Experimental schema enabled on server. Accuracy remains untested; structured observations require review.':'Prepared checks are off by default. No live model performance has been evaluated.';$('vision-status').textContent=s.visionConfigured?'Vision model configured':'Camera & task checklists';}).catch(()=>{$('vision-status').textContent='Offline workspace · AI needs connection';});
 $('scenario-description').textContent='Scripted examples explain the workflow. They never analyze or describe your camera.';render();
 
 $('stop-speech').onclick=()=>{if('speechSynthesis'in window)speechSynthesis.cancel();$('speech-status').textContent='Audio stopped.';};

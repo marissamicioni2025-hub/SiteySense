@@ -9,9 +9,10 @@ try{
  page.on('request',request=>{if(new URL(request.url()).pathname.startsWith('/api/analyze'))analysisCalls++;});
  // No live model calls or credentials are needed by this smoke test.
  await page.route('**/api/status',route=>route.fulfill({json:{visionConfigured:false,model:'test',videoModel:'test'}}));
- await page.goto(origin);await page.getByText('Camera & checklists · no key needed',{exact:true}).waitFor();
+ await page.goto(origin);await page.getByText('Camera & task checklists',{exact:true}).waitFor();
  assert.equal(await page.locator('.observation').count(),0);await page.locator('#walkthrough summary').click();await page.click('[data-scenario="roof-edge"]');await page.locator('[data-scenario="roof-edge"][aria-pressed="true"]').waitFor();
  await page.locator('#briefing-text').filter({hasText:'suggests proximity'}).waitFor();
+ await page.getByText('1 of 3',{exact:true}).waitFor();await page.click('#example-next');await page.getByText('2 of 3',{exact:true}).waitFor();await page.click('#example-next');await page.getByText('3 of 3',{exact:true}).waitFor();assert.ok(await page.locator('#example-next').isDisabled());await page.locator('#timeline button').first().click();await page.getByText('1 of 3',{exact:true}).waitFor();assert.equal(await page.locator('#timeline button:disabled').count(),0);assert.ok(!(await page.locator('#timeline').textContent()).includes('9.0s'));
  await page.click('[data-scenario="poor-light"]');
  await page.locator('#briefing-text').filter({hasText:'No visual hazard assessment can be made'}).waitFor();
  assert.ok(!(await page.locator('#briefing-text').textContent()).includes('suggests proximity'));
@@ -29,7 +30,7 @@ try{
  await page.click('#mobile-reviews');await page.locator('.saved-review').waitFor();
  await page.getByRole('button',{name:'Close saved reviews'}).click();
  await page.setInputFiles('#upload',{name:'site.png',mimeType:'image/png',buffer:await page.screenshot()});
- assert.equal(await page.locator('.observation').count(),0);
+ assert.equal(await page.locator('.observation').count(),0);assert.ok(await page.locator('#example-player').isHidden());
  assert.equal(await page.locator('[data-scenario][aria-pressed="true"]').count(),0);
  assert.equal(await page.locator('#illustration').getAttribute('hidden'),'');
  await page.click('#analyze');await page.getByText(/Automatic analysis is unavailable here/).waitFor();
