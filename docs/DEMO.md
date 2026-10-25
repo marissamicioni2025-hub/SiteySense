@@ -56,3 +56,9 @@ Open the live camera from the top of the workspace. Show the local-only status, 
 Start at Today’s task. Point out that weather is unavailable until a location is checked, and that no camera analysis has occurred. Choose a task and confirm one precaution. Use a manually selected location or explicitly allow geolocation to request an NWS forecast; explain its update time and the difference between forecast wind and measured gusts. If networking fails, use the what-if controls and identify the simulation label.
 
 Show Needs attention: each item has a source, evidence, relevance and verification action. Compare forecast precipitation with the independent worker-reported surface selector. A forecast of rain is not proof of a wet roof. Expand Resources for official references and their review status. Open live camera and explain that it is local preview only. Prepared extra AI checks are off by default and not validated on real footage. Use a scripted example to demonstrate uncertainty if no authorized model access exists.
+
+## Gemini Live demonstration
+
+Only use this after a real authorized connection has succeeded. Open the camera in a controlled setting, confirm upload permission, enter the team Live access code and start Gemini Live. Show the last checked frame timestamp and the fixed verification reminders. Move the view to an unclear scene and verify it reports uncertainty. Stop AI review and show that the local preview remains open without uploading new frames. Do not stage dangerous work. The session is sampled video-frame review, not a two-way voice conversation or continuous safety inspection.
+
+If the model is unavailable, state the failure and use the clearly scripted walkthrough. Preserve a dated official announcement for the exact Live capability: the September 1 claim has not been independently verified here. Agentic clip navigation and Live streaming are different APIs and should not be conflated in the presentation.

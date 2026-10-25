@@ -58,3 +58,7 @@ Put an HTTPS reverse proxy or your hosting platform's HTTPS endpoint in front of
 ## Updating the app
 
 When changing offline shell assets for a release, increment `CACHE` in `public/sw.js`. The new service worker installs the complete asset list and removes only old SiteySense shell caches. Reload after the update. Clearing the browser's site data also removes locally saved reviews and confirmations, so download them first if needed.
+
+## Optional Gemini Live
+
+Live preview and Gemini Live are separate. After the server has authorized Live access configured (see README), open the camera, confirm upload permission, enter the separate team Live access code, and choose Start Gemini Live. Do not type a Google API key into the page. The session sends selected camera frames and may incur model charges. Stop AI review leaves the local preview open; Stop camera or backgrounding ends the Live session too. Results refer to the last checked frame and do not certify the moving scene. Browser speech reads the fixed application briefing, not unreviewed model advice.

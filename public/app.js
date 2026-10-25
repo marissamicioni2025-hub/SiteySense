@@ -1,3 +1,4 @@
+import {createLiveReview} from './live-review.js';
 import {visualChecks} from './visual-checks.js';
 import {attentionFactors} from './attention.js';
 import {getTask,tasks,topics,readTaskChecks,resourceGroups} from './tasks.js';
@@ -24,6 +25,10 @@ const liveCamera=createLiveCamera({video:$('live-video'),open:$('live-open'),clo
  onMessage:message=>{$('live-status').textContent=message;if(state.mode==='upload'&&!upload){const active=!!$('live-video').srcObject;$('mode-badge').textContent=active?'LIVE PREVIEW':'CAMERA NOT CONNECTED';$('scene-label').textContent=active?'LIVE CAMERA · LOCAL PREVIEW ONLY':'CAMERA NOT CONNECTED · NO ANALYSIS';}}
 });
 $('camera-shortcut').onclick=()=>{$('visual').scrollIntoView({behavior:'smooth',block:'start'});$('live-open').click();};
+const liveReview=createLiveReview({video:$('live-video'),start:$('start-live-review'),stop:$('stop-live-review'),status:$('live-review-status'),consent:$('consent'),accessCode:$('live-access-code'),
+ onClear:()=>{delete state.liveCheckedAt;state.mode='upload';clearScenarioSelection();state.observations=[];delete state.detections;delete state.processing;delete state.model;visualSummary='Connecting to Gemini Live. No frame result is available yet.';$('mode-badge').textContent='LIVE · CONNECTING';$('scene-label').textContent='LIVE CAMERA · NO CURRENT AI RESULT';$('analysis-message').textContent=visualSummary;render();},
+ onResult:message=>{state.mode='model';state.model=message.model;state.detections=[message.frame];state.observations=assess(state).visionReminders;state.liveCheckedAt=message.checkedAt;visualSummary='Gemini Live checked one sampled frame at '+new Date(message.checkedAt).toLocaleTimeString()+'.';$('mode-badge').textContent='LIVE · LAST FRAME';$('scene-label').textContent='LAST FRAME CHECKED · '+new Date(message.checkedAt).toLocaleTimeString();$('analysis-message').textContent=visualSummary+' The moving preview is not a continuous safety assessment.';render();}
+});
 $('live-snapshot').addEventListener('camera:frame',event=>{selectFile(event.detail);$('live-status').textContent='Frame captured locally. Preview stopped. The image has not been analyzed or uploaded.';});
 async function render(){
  const version=++generation;
@@ -87,7 +92,7 @@ $('task').onchange=()=>{state.task=$('task').value;$('review-note').value='';$('
 for(const id of ['temp','wind','rain'])$(id).oninput=()=>{state.temperature=Number($('temp').value);state.wind=Number($('wind').value);state.rain=$('rain').checked;weatherControls.simulationChanged();render();};
 $('surface-status').onchange=()=>{state.surfaceStatus=$('surface-status').value;render();};
 
-function clearMedia(){liveCamera.stop();stopCamera();recordedDuration=null;$('coverage').hidden=true;$('coverage').textContent='';if(objectURL)URL.revokeObjectURL(objectURL);objectURL=null;upload=null;$('upload').value='';$('video').pause();$('video').removeAttribute('src');$('video').load();$('photo').removeAttribute('src');$('video').hidden=true;$('photo').hidden=true;}
+function clearMedia(){delete state.liveCheckedAt;liveCamera.stop();stopCamera();recordedDuration=null;$('coverage').hidden=true;$('coverage').textContent='';if(objectURL)URL.revokeObjectURL(objectURL);objectURL=null;upload=null;$('upload').value='';$('video').pause();$('video').removeAttribute('src');$('video').load();$('photo').removeAttribute('src');$('video').hidden=true;$('photo').hidden=true;}
 function demo(id='roof-edge'){
  const scenario=getScenario(id);exampleStep=0;$('example-player').hidden=false;$('walkthrough').open=true;clearMedia();state.mode='demo';state.scenarioId=id;state.detections=scenario.detections;state.observations=scenario.observations;delete state.processing;delete state.model;
  $('illustration').toggleAttribute('hidden',false);$('illustration').style.filter=scenario.dim?'brightness(.15) blur(4px)':'';
@@ -177,12 +182,12 @@ $('analyze').onclick=async()=>{
  finally{setBusy(false);}
 };
 $('brief').onclick=()=>{if(!('speechSynthesis'in window)){$('speech-status').textContent='Speech is unavailable in this browser. Read the briefing below.';return;}speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(briefing);utterance.rate=.95;utterance.onstart=()=>{$('speech-status').textContent='Speaking briefing…';};utterance.onend=()=>{$('speech-status').textContent='Briefing complete.';};utterance.onerror=()=>{$('speech-status').textContent='Speech could not play. Read the briefing above.';};speechSynthesis.speak(utterance);};
-api('/api/status').then(s=>{visionConfigured=s.visionConfigured;$('experimental-status').textContent=s.extendedChecks?'Experimental schema enabled on server. Accuracy remains untested; structured observations require review.':'Prepared checks are off by default. No live model performance has been evaluated.';$('vision-status').textContent=s.visionConfigured?'Vision model configured':'Camera & task checklists';}).catch(()=>{$('vision-status').textContent='Offline workspace · AI needs connection';});
+api('/api/status').then(s=>{visionConfigured=s.visionConfigured;liveReview.configure(s.liveEnabled);$('experimental-status').textContent=s.extendedChecks?'Experimental schema enabled on server. Accuracy remains untested; structured observations require review.':'Prepared checks are off by default. No live model performance has been evaluated.';$('vision-status').textContent=s.visionConfigured?'Vision model configured':'Camera & task checklists';}).catch(()=>{$('vision-status').textContent='Offline workspace · AI needs connection';});
 $('scenario-description').textContent='Scripted examples explain the workflow. They never analyze or describe your camera.';render();
 
 $('stop-speech').onclick=()=>{if('speechSynthesis'in window)speechSynthesis.cancel();$('speech-status').textContent='Audio stopped.';};
 $('download-report').onclick=()=>{
- const report={attention:attentionFactors(state,readTaskChecks(state.task,checks[state.task])),project:'SiteySense AI',created:new Date().toISOString(),task:state.task,mode:state.mode,scenarioId:state.scenarioId||null,note:$('review-note').value.trim(),visualSummary,conditions:sanitizeWeatherReport(state),detections:state.detections||[],processing:state.processing||null,visionModel:state.model||null,observations:state.observations,taskLabel:getTask(state.task).label,checklist:getTask(state.task).checks,workerConfirmations:readTaskChecks(state.task,checks[state.task]),briefing,guidance:latestGuidance,limitation:'Decision support only. Not an all-clear. No injury probability, compliance certification, or comprehensive video coverage.'};
+ const report={attention:attentionFactors(state,readTaskChecks(state.task,checks[state.task])),project:'SiteySense AI',created:new Date().toISOString(),task:state.task,mode:state.mode,scenarioId:state.scenarioId||null,liveCheckedAt:state.liveCheckedAt||null,note:$('review-note').value.trim(),visualSummary,conditions:sanitizeWeatherReport(state),detections:state.detections||[],processing:state.processing||null,visionModel:state.model||null,observations:state.observations,taskLabel:getTask(state.task).label,checklist:getTask(state.task).checks,workerConfirmations:readTaskChecks(state.task,checks[state.task]),briefing,guidance:latestGuidance,limitation:'Decision support only. Not an all-clear. No injury probability, compliance certification, or comprehensive video coverage.'};
  window.dispatchEvent(new CustomEvent('sitesense:save-review',{detail:report}));
  const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='siteysense-review.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 };

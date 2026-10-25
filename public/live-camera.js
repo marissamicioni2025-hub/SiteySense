@@ -2,7 +2,7 @@
 export function createLiveCamera({video,open,close,flip,snapshot,onStart,onMessage,onBusy}){
  let stream=null,request=0,facing='environment',pending=false;
  function controls(){open.disabled=pending||!!stream;close.hidden=!pending&&!stream;flip.hidden=!stream;snapshot.hidden=!stream;flip.disabled=pending;snapshot.disabled=pending;}
- function stop(){request++;pending=false;if(stream)stream.getTracks().forEach(track=>track.stop());stream=null;video.pause();video.srcObject=null;video.hidden=true;controls();}
+ function stop(){window.dispatchEvent(new Event('siteysense:camera-stopped'));request++;pending=false;if(stream)stream.getTracks().forEach(track=>track.stop());stream=null;video.pause();video.srcObject=null;video.hidden=true;controls();}
  async function start(nextFacing=facing){
  if(!navigator.mediaDevices?.getUserMedia){onMessage('Live camera requires HTTPS and a supported browser. Use Take a photo or Upload footage instead.');return;}
  stop();onStart();facing=nextFacing;const current=++request;pending=true;onBusy(true);controls();onMessage('Waiting for camera permission. Choose Allow in your browser. No audio or footage is sent.');

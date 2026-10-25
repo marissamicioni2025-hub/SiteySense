@@ -1,3 +1,4 @@
+import {attachLive} from './live.js';
 import {fetchWeather} from './weather.js';
 import pkg from './package.json' with {type:'json'};
 import http from 'node:http';
@@ -10,6 +11,9 @@ import {runVisionChecks,validateDetections,decideReminder,runAgenticVideo} from 
 const root=fileURLToPath(new URL('./public/',import.meta.url));
 const key=process.env.GEMINI_API_KEY||process.env.GOOGLE_API_KEY;
 const model=process.env.GEMINI_MODEL||'gemini-2.5-flash';
+const liveCode=process.env.SITEYSENSE_LIVE_CODE;
+const liveEnabled=process.env.GEMINI_LIVE_ENABLED==='true';
+const liveModel=process.env.GEMINI_LIVE_MODEL||'gemini-3.8-live';
 const extendedChecks=process.env.GEMINI_EXTENDED_CHECKS==='true';
 const videoModel=process.env.GEMINI_VIDEO_MODEL||'gemini-3.8-flash';
 const send=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
@@ -17,7 +21,7 @@ const send=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application
 export const server=http.createServer(async(req,res)=>{
  try{
  const url=new URL(req.url,'http://localhost');
- if(url.pathname==='/api/status')return send(res,200,{version:pkg.version,visionConfigured:!!key,model,videoModel,extendedChecks});
+ if(url.pathname==='/api/status')return send(res,200,{version:pkg.version,visionConfigured:!!key,model,videoModel,extendedChecks,liveEnabled:liveEnabled&&!!key&&!!liveCode,liveModel});
  if(url.pathname==='/api/weather'){
  const lat=Number(url.searchParams.get('lat')),lon=Number(url.searchParams.get('lon'));
  if(!url.searchParams.has('lat')||!url.searchParams.has('lon')||url.searchParams.get('lat').trim()===''||url.searchParams.get('lon').trim()===''||!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)return send(res,400,{error:'Enter valid latitude and longitude.'});
@@ -55,4 +59,5 @@ export const server=http.createServer(async(req,res)=>{
  res.writeHead(200,{'Content-Type':mime,'X-Content-Type-Options':'nosniff','Cache-Control':'no-cache',...(url.pathname==='/sw.js'?{'Service-Worker-Allowed':'/'}:{})});res.end(content);
  }catch(error){send(res,error.code==='ENOENT'?404:502,{error:error.code==='ENOENT'?'Not found':error.message});}
 });
+attachLive(server,{apiKey:key,accessCode:liveCode,enabled:liveEnabled,model:liveModel});
 if(process.argv[1]===fileURLToPath(import.meta.url))server.listen(Number(process.env.PORT)||3000,'0.0.0.0',()=>console.log('SiteySense running on port '+(process.env.PORT||3000)));

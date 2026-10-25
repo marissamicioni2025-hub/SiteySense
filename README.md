@@ -166,4 +166,40 @@ The Docker image now includes `weather.js`. Docker/Render deployment has not bee
 
 Examples now use titles such as **Example of an edge review**. Select an example and use Previous/Next or its step buttons to move through “Show the work area”, “Understand the observation”, and “Verify the precaution”. They are illustrated walkthroughs, not video files, so the old non-playing 3/6/9-second labels have been removed. Actual uploaded-video reviews retain real timestamp seeking. Switching to a camera or upload hides the example player and clears example results.
 
-Live camera preview is separate from live model analysis. An authorized Gemini key enables the existing photo/clip analysis paths; continuous periodic live-frame checks are not implemented by simply adding a key. Such a workflow still needs explicit upload permission, start/stop controls, bounded request frequency, one in-flight request, stale-result timestamps, cancellation and evaluation on real footage. No continuous AI monitoring or safety certification is claimed.
+Live camera preview and optional Gemini Live review are separate controls. Preview never uploads footage by itself. The v0.4 Live path below adds an explicitly authorized, bounded video-frame session; photo/clip analysis remains available separately.
+
+
+## Gemini Live video-frame review — v0.4
+
+This path uses **Gemini Live API** through the installed `@google/genai` SDK’s `live.connect`. It is separate from the Interactions API agentic clip review. Google’s official [Get started with Live API cookbook](https://github.com/google-gemini/cookbook/blob/main/quickstarts/Get_started_LiveAPI.ipynb), inspected October 25, 2026, lists `gemini-3.8-live` and describes video-frame input. A direct request to the documentation site was blocked. This does not establish a September 1 release date; retain a dated official announcement for the exact model/capability used in the hackathon.
+
+### Render setup
+
+Set these values securely in Render’s Environment settings and deploy:
+
+```text
+GEMINI_API_KEY=<your existing Google key, server only>
+GEMINI_LIVE_ENABLED=true
+GEMINI_LIVE_MODEL=gemini-3.8-live
+SITEYSENSE_LIVE_CODE=<a separate long random team access code>
+```
+
+Do not use your Google API key as the team code. Give the team code only to people authorized to use your model quota. No values are committed or stored in the browser. This code protects the Live endpoint, not the older photo/clip endpoints; platform authentication and usage controls are still appropriate for a shared service. Model availability, billing, region and account permissions must be checked with a real session. A model listed in the cookbook is not proof of access in your project.
+
+On the HTTPS app: **Open live camera** → allow camera permission → check permission to send footage → enter the team Live access code → **Start Gemini Live**. The code is sent in the first same-origin WebSocket message and cleared from the input; it is not placed in a URL. **Stop AI review** closes the Live connection while allowing local camera preview to remain open. Stop camera, changing examples/uploads, leaving the page or moving it to the background also ends AI review. No automatic reconnection is attempted. Withdrawal of upload permission stops the stream.
+
+### What it does
+
+The browser sends JPEG frames, at most about one every three seconds, through the Node WebSocket relay. One request is in flight at a time. The relay authenticates with Google server-side; the permanent Google key is never sent to the browser. Limits are one concurrent Live session per server process, 40 frames and two minutes per session, plus connection/response deadlines. Sessions require explicit restart after stopping or reaching a limit. Usage can incur charges.
+
+Gemini is instructed to call `report_observations` with the current view ID, quality, edge proximity and eye-protection visibility. The server validates that structure and discards model-written prose/audio. Existing fixed rules generate the reminder text and briefing. The Live model is configured for its supported AUDIO modality, but its generated audio is not played or sent to the browser. Browser speech synthesis reads the application’s fixed briefing when requested. No microphone input or two-way voice conversation is implemented.
+
+The UI displays the last frame-check time. The moving camera can differ from that sampled frame; missed events, latency and false observations remain possible. This is not frame-by-frame monitoring, a safety certification, or a guarantee of detecting hazards. No current model access, real footage accuracy, physical-device behavior or live Google session has been verified in this workspace. A timeout or malformed response ends the session with an inability-to-assess message.
+
+The Node SDK’s Live socket needs outbound secure WebSocket access to `generativelanguage.googleapis.com`. Its WebSocket transport may not honor the same proxy settings as HTTP requests. TLS verification stays enabled. Render generally supports WebSockets, but this project’s public deployment has not been verified. `live.js` is included in the Docker image.
+
+### Validation
+
+`npm test` tests the actual relay using an injected mock provider, including authentication, origin restrictions, session limits, structured validation, timeouts and cleanup. With the server running, `npm run test:live` tests the browser flow with fake camera media and a mocked provider WebSocket. These tests do not establish a successful real Gemini connection.
+
+For the first real session, use a permitted, clear view in a controlled setting. Confirm that a new timestamped result appears, uncertainty is reported when the view is unclear, and Stop AI review stops sending frames. Record actual latency, false positives and missed observations; do not invent results. Save model identifier and dated release evidence for the submission.
