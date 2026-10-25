@@ -140,7 +140,7 @@ function selectFile(file,duration=null){
  const el=file.type.startsWith('video')?$('video'):$('photo');el.src=objectURL;el.hidden=false;
  $('illustration').toggleAttribute('hidden',true);$('scene-note').hidden=true;$('scene-label').textContent='LOCAL PREVIEW · NOT YET ANALYZED';$('mode-badge').textContent='UPLOAD';
  state.observations=[];delete state.detections;delete state.processing;delete state.model;state.mode='upload';clearScenarioSelection();visualSummary='Footage not yet analyzed.';
- $('analysis-message').textContent='Preview stays on this device. Grant permission below, then analyze. Agentic review sends the clip to Google; quick check sends four frames. No footage is stored by this app.';
+ $('analysis-message').textContent='Preview stays on this device. Grant permission below, then analyze. Agentic video review sends the clip to Google; photo review sends one image. No footage is stored by this app.';
  render();
 }
 $('upload').onchange=()=>selectFile($('upload').files[0]);
@@ -172,11 +172,11 @@ window.addEventListener('pagehide',stopCamera);
 
 async function ready(el,event){if(el instanceof HTMLVideoElement?el.readyState>=2:el.complete&&el.naturalWidth)return;await new Promise((resolve,reject)=>{const timer=setTimeout(()=>{cleanup();reject(Error('Media could not be loaded. Try a different file.'));},12000);const cleanup=()=>{clearTimeout(timer);el.removeEventListener(event,ok);el.removeEventListener('error',bad);};const ok=()=>{cleanup();resolve();};const bad=()=>{cleanup();reject(Error('Media could not be decoded.'));};el.addEventListener(event,ok,{once:true});el.addEventListener('error',bad,{once:true});});}
 async function frames(){const canvas=document.createElement('canvas');const context=canvas.getContext('2d');const isVideo=upload.type.startsWith('video');const el=isVideo?$('video'):$('photo');await ready(el,isVideo?'loadeddata':'load');const duration=recordedDuration||el.duration;if(isVideo&&(!Number.isFinite(duration)||duration>30))throw Error('Choose a clip of 30 seconds or less.');const width=isVideo?el.videoWidth:el.naturalWidth,height=isVideo?el.videoHeight:el.naturalHeight;canvas.width=Math.min(width,960);canvas.height=Math.round(height*canvas.width/width);const times=isVideo?[0.1,0.33,0.66,0.95].map(f=>Math.round(duration*f*100)/100):[0];const samples=[];for(const time of times){if(isVideo){el.pause();if(Math.abs(el.currentTime-time)>.01)await new Promise((resolve,reject)=>{const timer=setTimeout(()=>{el.removeEventListener('seeked',done);reject(Error('Could not sample video.'));},7000);const done=()=>{clearTimeout(timer);resolve();};el.addEventListener('seeked',done,{once:true});el.currentTime=time;});}context.drawImage(el,0,0,canvas.width,canvas.height);samples.push({time,image:canvas.toDataURL('image/jpeg',.8)});}return samples;}
-function setBusy(busy){for(const id of ['analyze','upload','phone-photo','demo','dim','record','capture-photo','review-mode','live-open','camera-shortcut','new-task','reset','example-play','example-prev','example-next','example-change'])$(id).disabled=busy;for(const button of $('scenario-options').children)button.disabled=busy;}
+function setBusy(busy){for(const id of ['analyze','upload','phone-photo','demo','dim','record','capture-photo','live-open','camera-shortcut','new-task','reset','example-play','example-prev','example-next','example-change'])$(id).disabled=busy;for(const button of $('scenario-options').children)button.disabled=busy;}
 async function videoPayload(){
  const el=$('video');await ready(el,'loadeddata');const duration=recordedDuration||el.duration;
  if(!Number.isFinite(duration)||duration<=0||duration>30)throw Error('Choose a clip of 30 seconds or less.');
- if(upload.size>14*1024*1024)throw Error('Agentic clips must be under 14 MB. Trim the clip or select Quick check.');
+ if(upload.size>14*1024*1024)throw Error('Agentic clips must be under 14 MB. Trim the clip before uploading.');
  const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result.split(',')[1]);reader.onerror=()=>reject(Error('Could not read this clip.'));reader.readAsDataURL(upload);});
  return {mimeType:upload.type.split(';')[0],duration,data};
 }
@@ -184,7 +184,7 @@ $('analyze').onclick=async()=>{
  if(!upload){$('analysis-message').textContent='Upload a photo or short video first. Demo scenarios do not use a model.';return;}
  if(visionConfigured===false||!navigator.onLine){$('analysis-message').textContent='Automatic analysis is unavailable here. Your upload has not been analyzed. Explore a scripted example above to continue.';$('demo-picker').scrollIntoView({behavior:'smooth',block:'center'});return;}
  if(!$('consent').checked){$('analysis-message').textContent='Please confirm permission to send this footage to Google before analyzing.';$('consent').focus();return;}
- const agentic=upload.type.startsWith('video')&&$('review-mode').value==='agentic';
+ const agentic=upload.type.startsWith('video');
  setBusy(true);state.observations=[];delete state.detections;delete state.processing;delete state.model;state.mode='upload';visualSummary='Review in progress. No visual conditions confirmed.';render();
  $('analysis-message').textContent=agentic?'Sending your clip for agentic review. The model will select relevant moments; this may take a minute…':'Requesting structured checks on selected frames…';
  try{
@@ -193,7 +193,7 @@ $('analyze').onclick=async()=>{
  $('mode-badge').textContent=agentic?'VIDEO REVIEW':'MODEL RESPONSE';$('scene-label').textContent=(agentic?'CLIP REVIEW · ':'SELECTED FRAMES · ')+data.model;
  visualSummary=data.quality==='insufficient'?'Visibility insufficient. No visual assessment could be made.':data.reason||'Selected views reviewed.';
  $('analysis-message').textContent=visualSummary+' This is not an all-clear. Verify site conditions directly.';
- $('coverage').hidden=false;$('coverage').textContent=agentic?(data.processing?.confirmed?`Agentic trace confirmed · ${data.processing.calls} processing call(s). Selected moments only; the rest of the clip is not certified as checked.`:'Agentic processing requested, but no complete processing trace was returned. Agentic navigation is unconfirmed.'): 'Quick check · selected frames only. Events between frames may be missed.';
+ $('coverage').hidden=false;$('coverage').textContent=agentic?(data.processing?.confirmed?`Agentic trace confirmed · ${data.processing.calls} processing call(s). Selected moments only; the rest of the clip is not certified as checked.`:'Agentic processing requested, but no complete processing trace was returned. Agentic navigation is unconfirmed.'): 'Photo review · one image only. Conditions outside this view are unknown.';
  render();
  }catch(error){visualSummary='Visual check unavailable. No assessment was made.';$('analysis-message').textContent=error.message+' No assessment was made. Explore a labeled example if needed.';$('coverage').hidden=true;render();}
  finally{setBusy(false);}

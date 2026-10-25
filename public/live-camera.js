@@ -12,7 +12,7 @@ export function createLiveCamera({video,open,close,flip,snapshot,onStart,onMessa
  stream=acquired;video.hidden=false;video.srcObject=stream;video.muted=true;await video.play();
  if(current!==request)return;
  for(const track of stream.getVideoTracks())track.addEventListener('ended',()=>{if(current===request){stop();onMessage('Camera disconnected. Open live camera to reconnect.');}},{once:true});
- onMessage('Live camera preview · device only. No AI analysis is running. Capture a frame to prepare a separate review. Switching cameras depends on your device.');
+ onMessage('Camera preview is open. Start Gemini Live below for AI observations; opening the camera alone does not start analysis.');
  }catch(error){if(current===request){stop();onBusy(false);onMessage(error.name==='NotAllowedError'?'Camera access was denied. Allow camera access in your browser’s site settings, then try again. You can also upload a photo.':error.name==='NotFoundError'?'No camera was found. Connect a camera or upload a photo.':'Camera could not start. Close other camera apps and try again, or upload a photo.');}}
  finally{if(current===request){pending=false;onBusy(false);}controls();}
  }
