@@ -20,19 +20,37 @@ export function assess({task='roofing',temperature=85,wind=8,rain=false,observat
 }
 
 export function buildBriefing(state){
- const result=assess(state);
- const parts=[state.mode==='demo'?'Scripted example briefing. No footage has been analyzed.':state.mode==='model'?'Pre-task briefing from selected visual views.':'Pre-task briefing. Visual conditions have not been confirmed.'];
- const definition=getTask(state.task)||getTask('roofing');
- parts.push(`Before ${definition.briefing}, ${definition.lead}.`);
- parts.push(state.weatherSource==='forecast'?'Weather context uses an hourly forecast, not on-site measurements.':state.weatherSource==='unavailable'?'Weather information is unavailable. Check current conditions before starting.':'Weather conditions in this briefing are simulated, not on-site measurements.');
- if(state.weatherSource==='forecast'&&forecastState(state.weatherData).status==='stale')parts.push('Forecast information is stale or its age is unknown. Refresh it before relying on it.');
- if(state.temperature>=80)parts.push('Follow your site heat plan for water, rest, and shade.');
- parts.push(...result.environmental);
- for(const item of result.guidance.filter(item=>!['edge','ladder','ppe','heat'].includes(item.key)).slice(0,2))parts.push(item.action);
- if(state.detections?.length&&state.detections.every(d=>d.quality==='insufficient'))parts.push('Visibility is insufficient. No visual hazard assessment can be made. Improve lighting and camera position.');
- parts.push(...new Set(result.visionReminders.map(r=>r.evidence)));
- parts.push(...new Set(result.experimentalReminders.map(r=>r.action)));
- parts.push('Confirm required protective equipment with your supervisor.');
- if(state.mode==='model'||state.mode==='demo')parts.push('Selected views can miss hazards. This is not an all-clear.');
+ const result=assess(state),task=getTask(state.task)||getTask('roofing');
+ const parts=[];
+ if(state.mode==='demo')parts.push('Scripted example briefing. This is an illustration, not your camera.');
+ parts.push(`Before ${task.briefing}, ${task.lead}.`);
+ const poor=state.detections?.length&&state.detections.every(frame=>frame.quality==='insufficient');
+ if(poor)parts.push('I can’t get a clear view of the work area. Hold the camera steady, improve the lighting, and show the task area so I can try again. I can’t check your protective equipment from this view.');
+ else if(state.mode==='model'||state.mode==='demo')parts.push(...new Set(result.visionReminders.map(reminder=>reminder.evidence)));
+ else parts.push('I haven’t checked a camera view yet. Use the checklist to verify the work area directly.');
+ if(!poor)parts.push(...new Set(result.experimentalReminders.map(reminder=>reminder.action)));
+ const forecast=state.weatherSource==='forecast',simulated=state.weatherSource==='simulated'||!state.weatherSource;
+ if(forecast){
+ parts.push('The weather numbers come from an hourly forecast, not a sensor at your work site.');
+ if(forecastState(state.weatherData).status!=='current')parts.push('That forecast is out of date or its timing is unclear. Refresh it before using it to plan the work.');
+ }else if(simulated)parts.push('The weather in this example is simulated. It does not describe current conditions at your site.');
+ else parts.push('I don’t have a weather update yet. Load the forecast and compare it with conditions at the site.');
+ if(Number.isFinite(state.temperature)){
+ parts.push(`The ${forecast?'forecast':simulated?'simulated':'supplied'} temperature is ${Math.round(state.temperature)} degrees Fahrenheit.`);
+ if(state.temperature>=80)parts.push('For outdoor work, follow your site heat plan for water, rest and shade. Temperature alone does not tell us your heat exposure.');
+ }
+ if(Number.isFinite(state.wind)&&state.wind>=20)parts.push(`The ${forecast?'forecast':'simulated'} wind is ${state.wind} miles per hour. For exposed work, wind can affect balance and make materials harder to handle. Check your site wind plan; this number is not a measured gust or a stop-work rule.`);
+ const chance=forecast?state.weatherData?.precipitationChance:null;
+ if(Number.isFinite(chance)&&chance>0){
+ const kind=/snow|sleet|ice|freezing/i.test(state.weatherData.summary||'')?'snow or icy weather':/rain|shower|thunder/i.test(state.weatherData.summary||'')?'rain':'rain or snow';
+ parts.push(chance<10?`The forecast gives a low ${chance} percent chance of ${kind}.`:`There is a ${chance} percent chance of ${kind} during the forecast period.`);
+ parts.push('That does not tell us whether the work surface is wet. Check it directly before starting.');
+ }
+ if(state.surfaceStatus==='wet')parts.push('You reported a wet surface. Confirm traction and the access route with your supervisor before continuing.');
+ else if(simulated&&state.rain)parts.push('This example assumes wet conditions. In that situation, check footing and access under the site plan.');
+ for(const alert of (forecast?state.weatherData?.alerts||[]:[]).filter(a=>a.relevant&&(!a.expires||Date.parse(a.expires)>Date.now())).slice(0,1))parts.push(`The National Weather Service has issued a ${alert.event}. Read its instructions and review your site’s weather plan with your supervisor.`);
+ if(task.topics.includes('silica'))parts.push('Before cutting or drilling, confirm the dust controls and protective equipment specified for that task.');
+ parts.push('Confirm the protective equipment required for this task with your supervisor. An unclear image is not proof that equipment is missing.');
+ if(state.mode==='model'||state.mode==='demo')parts.push('The camera can miss hazards. This is not an all-clear.');
  return parts.join(' ');
 }

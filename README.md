@@ -223,3 +223,11 @@ The in-app Install app button and installation dialog have been removed. The web
 ## Simplified navigation — v0.4.3
 
 The Install app button/dialog and Saved reviews buttons/notebook have been removed. Download summary exports the current review directly; no new review history or notes are written to local storage. Pre-existing review storage is left untouched rather than silently deleted, but is no longer read or displayed. Checklist confirmations still persist per task. Notes remain session-only unless explicitly downloaded. Offline rules, camera controls, manifest compatibility and the update/reload banner remain available.
+
+## Briefing voice and plain language — v0.4.4
+
+The briefing has a Voice selector, Slower/Normal/Faster speed, and Preview voice. It uses voices actually provided by the device/browser and prefers an available English natural/enhanced voice; it does not invent voice choices or require another API key. Voice and speed preferences are stored separately from checklist data. Some browser voices require connectivity, and audio quality/availability depends on the device. The briefing remains readable if speech fails.
+
+Rain/snow probability is explained with the actual forecast number; a 1% chance is described as low, not imminent danger. Forecast rain does not establish roof wetness. Poor camera quality prompts a better view and direct PPE verification, not an assertion that gloves or other equipment are absent. The app does not have a glove detector. Task-specific PPE selection still follows the site's procedures and supervisor guidance.
+
+Repeated identical Live results no longer interrupt a briefing already being read. A genuinely changed briefing stops outdated speech so the user can play the updated version. Speech is manual, not an automatic alert system. `npm run test:speech` exercises voice/rate selection, preview, preference persistence, stop and changing-briefing behavior with mocked browser audio.

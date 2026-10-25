@@ -1,3 +1,4 @@
+import {createSpeechControls} from './speech.js';
 import {createLiveReview} from './live-review.js';
 import {visualChecks} from './visual-checks.js';
 import {attentionFactors} from './attention.js';
@@ -19,6 +20,7 @@ async function api(path,data){const response=await fetch(path,data?{method:'POST
 let briefing='', recorder=null, cameraStream=null, recordTimer=null, recordedDuration=null, capturePending=false;
 let visualSummary='Visual conditions have not been confirmed.';
 let latestGuidance=[],visionConfigured=null;
+const speechControls=createSpeechControls({voiceSelect:$('briefing-voice'),rateSelect:$('briefing-rate'),preview:$('preview-voice'),status:$('speech-status')});
 const weatherControls=createWeatherControls({state,onChange:render,request:api});
 const liveCamera=createLiveCamera({video:$('live-video'),open:$('live-open'),close:$('live-close'),flip:$('live-flip'),snapshot:$('live-snapshot'),onBusy:setBusy,
  onStart:()=>{clearMedia();state.mode='upload';clearScenarioSelection();state.observations=[];delete state.detections;delete state.processing;delete state.model;visualSummary='Live camera preview only. No visual assessment has been made.';$('illustration').toggleAttribute('hidden',true);$('scene-note').hidden=true;$('scene-label').textContent='LIVE CAMERA · LOCAL PREVIEW ONLY';$('mode-badge').textContent='LIVE PREVIEW';$('analysis-message').textContent='Camera preview does not detect hazards. Capture a frame or record a clip for a separate review.';render();},
@@ -32,7 +34,6 @@ const liveReview=createLiveReview({video:$('live-video'),start:$('start-live-rev
 $('live-snapshot').addEventListener('camera:frame',event=>{selectFile(event.detail);$('live-status').textContent='Frame captured locally. Preview stopped. The image has not been analyzed or uploaded.';});
 async function render(){
  const version=++generation;
- if('speechSynthesis'in window&&speechSynthesis.speaking){speechSynthesis.cancel();$('speech-status').textContent='Review updated. Play the new briefing when ready.';}
  weatherControls.render();
  $('temp-value').textContent=Number.isFinite(state.temperature)?state.temperature+'°F':'Not set';$('wind-value').textContent=Number.isFinite(state.wind)?state.wind+' mph':'Not set';
  $('timeline').replaceChildren();
@@ -52,7 +53,7 @@ async function render(){
  $('guidance').innerHTML=Object.entries(groups).map(([group,items])=>`<div class="resource-group"><h3>${escape(resourceGroups[group])}</h3>${items.map(g=>`<details class="guidance-item"><summary>${escape(g.title)}</summary><p>${escape(g.action)}</p><a href="${escape(g.url)}" target="_blank" rel="noopener noreferrer">${escape(g.source)} ↗</a><details class="source-scope"><summary>Source and scope</summary><p>${escape(g.kind)} · ${escape(g.reviewedAt?'Reviewed '+g.reviewedAt:g.sourceStatus)}</p><p>${escape(g.scope)}</p></details></details>`).join('')}</div>`).join('');
  $('extra-resources').innerHTML='<a class="extra-resource" href="https://www.cdc.gov/niosh/" target="_blank" rel="noopener noreferrer">NIOSH occupational safety resources ↗</a><a class="extra-resource" href="https://www.weather.gov/safety/" target="_blank" rel="noopener noreferrer">NWS weather safety resources ↗</a><p class="fine">Additional resource links · content review pending. No fatality statistics are presented as verified.</p>';
  $('environmental').textContent=result.environmental.join(' ')||'Review the site plan and verify conditions before beginning.';
- briefing=buildBriefing(state);
+ const nextBriefing=buildBriefing(state);if(nextBriefing!==briefing)speechControls.invalidate();briefing=nextBriefing;
  $('briefing-text').textContent=briefing;
  }catch(error){$('guidance').textContent=error.message;}
  renderChecks();
@@ -197,11 +198,11 @@ $('analyze').onclick=async()=>{
  }catch(error){visualSummary='Visual check unavailable. No assessment was made.';$('analysis-message').textContent=error.message+' No assessment was made. Explore a labeled example if needed.';$('coverage').hidden=true;render();}
  finally{setBusy(false);}
 };
-$('brief').onclick=()=>{if(!('speechSynthesis'in window)){$('speech-status').textContent='Speech is unavailable in this browser. Read the briefing below.';return;}speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(briefing);utterance.rate=.95;utterance.onstart=()=>{$('speech-status').textContent='Speaking briefing…';};utterance.onend=()=>{$('speech-status').textContent='Briefing complete.';};utterance.onerror=()=>{$('speech-status').textContent='Speech could not play. Read the briefing above.';};speechSynthesis.speak(utterance);};
+$('brief').onclick=()=>speechControls.speak(briefing);
 api('/api/status').then(s=>{visionConfigured=s.visionConfigured;liveReview.configure(s.liveEnabled,s.liveModel);$('experimental-status').textContent=s.extendedChecks?'Experimental schema enabled on server. Accuracy remains untested; structured observations require review.':'Prepared checks are off by default. No live model performance has been evaluated.';$('vision-status').textContent=s.visionConfigured?'Vision model configured':'Camera & task checklists';}).catch(()=>{$('vision-status').textContent='Offline workspace · AI needs connection';});
 $('scenario-description').textContent='Scripted examples explain the workflow. They never analyze or describe your camera.';render();
 
-$('stop-speech').onclick=()=>{if('speechSynthesis'in window)speechSynthesis.cancel();$('speech-status').textContent='Audio stopped.';};
+$('stop-speech').onclick=()=>speechControls.stop();
 $('download-report').onclick=()=>{
  const report={attention:attentionFactors(state,readTaskChecks(state.task,checks[state.task])),project:'SiteySense AI',created:new Date().toISOString(),task:state.task,mode:state.mode,scenarioId:state.scenarioId||null,liveCheckedAt:state.liveCheckedAt||null,note:$('review-note').value.trim(),visualSummary,conditions:sanitizeWeatherReport(state),detections:state.detections||[],processing:state.processing||null,visionModel:state.model||null,observations:state.observations,taskLabel:getTask(state.task).label,checklist:getTask(state.task).checks,workerConfirmations:readTaskChecks(state.task,checks[state.task]),briefing,guidance:latestGuidance,limitation:'Decision support only. Not an all-clear. No injury probability, compliance certification, or comprehensive video coverage.'};
  $('speech-status').textContent='Summary downloaded. No review history is saved in the app.';

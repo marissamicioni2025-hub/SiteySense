@@ -16,7 +16,7 @@ try{
  const firstTransform=await page.locator('#example-worker').getAttribute('transform');await page.clock.install();await page.click('#example-play');await page.clock.runFor(4000);await page.getByText('2 of 3',{exact:true}).waitFor();assert.notEqual(await page.locator('#example-worker').getAttribute('transform'),firstTransform);await page.clock.runFor(4000);await page.getByText('3 of 3',{exact:true}).waitFor();await page.clock.runFor(4000);await page.getByText('Example complete.',{exact:false}).waitFor();await page.click('#example-next');await page.getByText('1 of 3',{exact:true}).waitFor();
 
  await page.locator('#walkthrough').evaluate(el=>el.open=true);await page.click('[data-scenario="poor-light"]');
- await page.locator('#briefing-text').filter({hasText:'No visual hazard assessment can be made'}).waitFor();
+ await page.locator('#briefing-text').filter({hasText:'can’t get a clear view'}).waitFor();
  assert.ok(!(await page.locator('#briefing-text').textContent()).includes('suggests proximity'));
  await page.locator('#walkthrough').evaluate(el=>el.open=true);await page.click('[data-scenario="eye-unclear"]');
  await page.locator('#briefing-text').filter({hasText:'can’t verify eye protection'}).waitFor();assert.ok(await page.locator('#eye-illustration').isVisible());assert.ok(await page.locator('#illustration').isHidden());assert.ok(!(await page.locator('#observations').textContent()).includes('Roof edge observation'));
@@ -42,7 +42,7 @@ try{
  await page.locator('#walkthrough').evaluate(el=>el.open=true);await page.locator('#walkthrough').evaluate(el=>el.open=true);await page.click('[data-scenario="eye-unclear"]');await page.selectOption('#task','ladder');
  await page.getByText('1 / 3 VERIFIED',{exact:true}).waitFor();
  await page.locator('#wind').fill('40');
- await page.locator('#briefing-text').filter({hasText:'Gusty conditions'}).waitFor();
+ await page.locator('#briefing-text').filter({hasText:'40 miles per hour'}).waitFor();
  assert.equal(await page.evaluate(()=>localStorage.getItem('sitesense-reviews-v1')),null);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  const cached=await page.evaluate(async()=>{const keys=await caches.keys();const name=keys.find(k=>k.startsWith('sitesense-shell-'));if(!name)return [];const cache=await caches.open(name);return (await cache.keys()).map(request=>new URL(request.url).pathname);});
