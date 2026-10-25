@@ -7,7 +7,7 @@ try{
  await context.addInitScript(()=>{if(!localStorage.getItem('sitesense-checks'))localStorage.setItem('sitesense-checks',JSON.stringify({roofing:{0:true,1:false,2:true},ladder:{1:true}}));if(!localStorage.getItem('sitesense-reviews-v1'))localStorage.setItem('sitesense-reviews-v1',JSON.stringify([{project:'SiteSense AI',created:'2026-10-01T12:00:00Z',task:'ladder',mode:'demo',briefing:'Legacy saved review'}]));});
  const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.SITESENSE_URL||'http://127.0.0.1:3000');
- assert.match(await page.title(),/SiteySense/);assert.equal(await page.locator('#task option').count(),10);
+ assert.match(await page.title(),/SiteySense/);assert.equal(await page.locator('#task option').count(),9);
  await page.getByText('2 / 3 VERIFIED',{exact:true}).waitFor();
  assert.ok((await page.locator('#camera-shortcut').boundingBox()).y<650);
  const legacyHistory=await page.evaluate(()=>localStorage.getItem('sitesense-reviews-v1'));assert.equal(await page.locator('#open-reviews, #mobile-reviews, #reviews-dialog').count(),0);
@@ -25,5 +25,5 @@ try{
  await page.locator('.guidance-item>summary').first().click();await page.locator('.source-scope summary').first().click();await page.getByText(/Source review pending/).first().waitFor();
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await page.setViewportSize({width:1440,height:1100});await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:'/tmp/siteysense-expanded-desktop.png',fullPage:true,animations:'disabled'});await page.setViewportSize({width:390,height:844});await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:'/tmp/siteysense-expanded-mobile.png',fullPage:true,animations:'disabled'});
- assert.deepEqual(errors,[]);console.log('Tasks browser passed: branding, camera placement, ten checklists/briefings, legacy confirmations and unchanged old storage, isolation, note export without persistence, fresh review, conditions recheck and source scope.');
+ assert.deepEqual(errors,[]);console.log('Tasks browser passed: branding, camera placement, nine checklists/briefings, legacy confirmations and unchanged old storage, isolation, note export without persistence, fresh review, conditions recheck and source scope.');
 }finally{await browser.close();}

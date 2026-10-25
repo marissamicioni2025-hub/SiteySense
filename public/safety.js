@@ -1,10 +1,11 @@
+import {taskVisionResults} from './task-vision.js';
 import {additionalReminders} from './visual-checks.js';
 import {forecastState} from './weather-state.js';
 import {decideReminder} from './reminders.js';
 import {topics,getTask} from './tasks.js';
 export const guidance=topics;
 export function assess({task='roofing',temperature=85,wind=8,rain=false,observations=[],detections,weatherSource,weatherData,surfaceStatus,mode,exampleFocus}) {
- const visionReminders=(detections?detections.flatMap(decideReminder):[]).filter(item=>mode!=='demo'||!exampleFocus||item.category===exampleFocus);
+ const visionReminders=(detections?detections.flatMap(decideReminder):[]).filter(item=>mode==='demo'||item.category!=='edge'||['roofing','scaffold'].includes(task)).filter(item=>mode!=='demo'||!exampleFocus||item.category===exampleFocus);
  const experimentalReminders=detections?detections.flatMap(additionalReminders):[];
  if(detections)observations=visionReminders;
  const definition=getTask(task)||getTask('roofing');
@@ -29,6 +30,7 @@ export function buildBriefing(state){
  else if(state.mode==='model'||state.mode==='demo')parts.push(...new Set(result.visionReminders.map(reminder=>reminder.evidence)));
  else parts.push('I haven’t checked a camera view yet. Use the checklist to verify the work area directly.');
  if(!poor)parts.push(...new Set(result.experimentalReminders.map(reminder=>reminder.action)));
+ if(state.liveCheckedAt)for(const item of taskVisionResults(state.task,state.detections?.[0]||{}))parts.push(item.text);
  const forecast=state.weatherSource==='forecast',simulated=state.weatherSource==='simulated'||!state.weatherSource;
  if(forecast){
  parts.push('The weather numbers come from an hourly forecast, not a sensor at your work site.');

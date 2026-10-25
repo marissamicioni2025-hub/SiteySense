@@ -1,3 +1,4 @@
+import {taskVisionChecks,taskVisionResults} from './task-vision.js';
 import {createSpeechControls} from './speech.js';
 import {createLiveReview} from './live-review.js';
 import {visualChecks} from './visual-checks.js';
@@ -27,14 +28,16 @@ const liveCamera=createLiveCamera({video:$('live-video'),open:$('live-open'),clo
  onMessage:message=>{$('live-status').textContent=message;if(state.mode==='upload'&&!upload){const active=!!$('live-video').srcObject;$('mode-badge').textContent=active?'LIVE PREVIEW':'CAMERA NOT CONNECTED';$('scene-label').textContent=active?'LIVE CAMERA · LOCAL PREVIEW ONLY':'CAMERA NOT CONNECTED · NO ANALYSIS';}}
 });
 $('camera-shortcut').onclick=()=>{$('visual').scrollIntoView({behavior:'smooth',block:'start'});$('live-open').click();};
-const liveReview=createLiveReview({video:$('live-video'),start:$('start-live-review'),stop:$('stop-live-review'),status:$('live-review-status'),stage:$('live-review-stage'),consent:$('consent'),accessCode:$('live-access-code'),
+const liveReview=createLiveReview({getTask:()=>state.task,video:$('live-video'),start:$('start-live-review'),stop:$('stop-live-review'),status:$('live-review-status'),stage:$('live-review-stage'),consent:$('consent'),accessCode:$('live-access-code'),
  onClear:()=>{delete state.liveCheckedAt;state.mode='upload';clearScenarioSelection();state.observations=[];delete state.detections;delete state.processing;delete state.model;visualSummary='Connecting to Gemini Live. No frame result is available yet.';$('mode-badge').textContent='LIVE · CONNECTING';$('scene-label').textContent='LIVE CAMERA · NO CURRENT AI RESULT';$('analysis-message').textContent=visualSummary;render();},
- onResult:message=>{state.mode='model';state.model=message.model;state.detections=[message.frame];state.observations=assess(state).visionReminders;state.liveCheckedAt=message.checkedAt;visualSummary='Gemini Live checked one sampled frame at '+new Date(message.checkedAt).toLocaleTimeString()+'.';$('mode-badge').textContent='LIVE · LAST FRAME';$('scene-label').textContent='LAST FRAME CHECKED · '+new Date(message.checkedAt).toLocaleTimeString();$('analysis-message').textContent=visualSummary+' The moving preview is not a continuous safety assessment.';render();}
+ onResult:message=>{if(message.task&&message.task!==state.task)return;state.mode='model';state.model=message.model;state.detections=[message.frame];state.observations=assess(state).visionReminders;state.liveCheckedAt=message.checkedAt;visualSummary='Gemini Live checked one sampled frame at '+new Date(message.checkedAt).toLocaleTimeString()+'.';$('mode-badge').textContent='LIVE · LAST FRAME';$('scene-label').textContent='LAST FRAME CHECKED · '+new Date(message.checkedAt).toLocaleTimeString();$('analysis-message').textContent=visualSummary+' The moving preview is not a continuous safety assessment.';render();}
 });
 $('live-snapshot').addEventListener('camera:frame',event=>{selectFile(event.detail);$('live-status').textContent='Frame captured locally. Preview stopped. The image has not been analyzed or uploaded.';});
 async function render(){
  const version=++generation;
  weatherControls.render();
+ const activeChecks=taskVisionChecks(state.task);$('live-check-scope').textContent='Checking for: visible activity, eye-protection visibility'+(['roofing','scaffold'].includes(state.task)?', exposed-edge proximity':'')+(activeChecks.length?', '+activeChecks.map(c=>c.label.toLowerCase()).join(', '):'. Detailed task checks require worker confirmation')+'. Task checks are experimental; accuracy has not been evaluated.';
+ $('live-task-results').replaceChildren(...(state.liveCheckedAt?taskVisionResults(state.task,state.detections?.[0]||{}):[]).map(item=>{const p=document.createElement('p');p.textContent=item.text;return p;}));
  $('temp-value').textContent=Number.isFinite(state.temperature)?state.temperature+'°F':'Not set';$('wind-value').textContent=Number.isFinite(state.wind)?state.wind+' mph':'Not set';
  $('timeline').replaceChildren();
  if(state.mode==='demo'){
@@ -88,7 +91,7 @@ function beginReview(clearNote=true){
  $('task-status').textContent=clearNote?'Fresh review started. Confirm each check again.':'Conditions recheck started. Prior confirmations and visual results cleared; your unsaved note was kept.';render();
 }
 $('new-task').onclick=()=>beginReview();$('reset').onclick=()=>beginReview(false);
-$('task').onchange=()=>{state.task=$('task').value;$('review-note').value='';$('task-status').textContent='Showing this task’s saved confirmations. Start a fresh review for a new job.';render();};
+$('task').onchange=()=>{liveReview.stop('Task changed. Start Gemini Live again to check the selected task.');state.task=$('task').value;state.mode='task';state.observations=[];delete state.detections;delete state.liveCheckedAt;delete state.model;delete state.processing;$('live-scene-result').textContent='Task changed. No AI result for this task yet.';visualSummary='Task changed. Start a new visual review for this task.';$('review-note').value='';$('task-status').textContent='Showing this task’s saved confirmations. Start a fresh review for a new job.';render();};
 
 for(const id of ['temp','wind','rain'])$(id).oninput=()=>{state.temperature=Number($('temp').value);state.wind=Number($('wind').value);state.rain=$('rain').checked;weatherControls.simulationChanged();render();};
 $('surface-status').onchange=()=>{state.surfaceStatus=$('surface-status').value;render();};
@@ -172,7 +175,7 @@ window.addEventListener('pagehide',stopCamera);
 
 async function ready(el,event){if(el instanceof HTMLVideoElement?el.readyState>=2:el.complete&&el.naturalWidth)return;await new Promise((resolve,reject)=>{const timer=setTimeout(()=>{cleanup();reject(Error('Media could not be loaded. Try a different file.'));},12000);const cleanup=()=>{clearTimeout(timer);el.removeEventListener(event,ok);el.removeEventListener('error',bad);};const ok=()=>{cleanup();resolve();};const bad=()=>{cleanup();reject(Error('Media could not be decoded.'));};el.addEventListener(event,ok,{once:true});el.addEventListener('error',bad,{once:true});});}
 async function frames(){const canvas=document.createElement('canvas');const context=canvas.getContext('2d');const isVideo=upload.type.startsWith('video');const el=isVideo?$('video'):$('photo');await ready(el,isVideo?'loadeddata':'load');const duration=recordedDuration||el.duration;if(isVideo&&(!Number.isFinite(duration)||duration>30))throw Error('Choose a clip of 30 seconds or less.');const width=isVideo?el.videoWidth:el.naturalWidth,height=isVideo?el.videoHeight:el.naturalHeight;canvas.width=Math.min(width,960);canvas.height=Math.round(height*canvas.width/width);const times=isVideo?[0.1,0.33,0.66,0.95].map(f=>Math.round(duration*f*100)/100):[0];const samples=[];for(const time of times){if(isVideo){el.pause();if(Math.abs(el.currentTime-time)>.01)await new Promise((resolve,reject)=>{const timer=setTimeout(()=>{el.removeEventListener('seeked',done);reject(Error('Could not sample video.'));},7000);const done=()=>{clearTimeout(timer);resolve();};el.addEventListener('seeked',done,{once:true});el.currentTime=time;});}context.drawImage(el,0,0,canvas.width,canvas.height);samples.push({time,image:canvas.toDataURL('image/jpeg',.8)});}return samples;}
-function setBusy(busy){for(const id of ['analyze','upload','phone-photo','demo','dim','record','capture-photo','live-open','camera-shortcut','new-task','reset','example-play','example-prev','example-next','example-change'])$(id).disabled=busy;for(const button of $('scenario-options').children)button.disabled=busy;}
+function setBusy(busy){for(const id of ['task','analyze','upload','phone-photo','demo','dim','record','capture-photo','live-open','camera-shortcut','new-task','reset','example-play','example-prev','example-next','example-change'])$(id).disabled=busy;for(const button of $('scenario-options').children)button.disabled=busy;}
 async function videoPayload(){
  const el=$('video');await ready(el,'loadeddata');const duration=recordedDuration||el.duration;
  if(!Number.isFinite(duration)||duration<=0||duration>30)throw Error('Choose a clip of 30 seconds or less.');

@@ -6,7 +6,7 @@ export function describeLiveScene(activity,quality){
  no_person:'No person is visible in this frame. Show the worker and task area if you want a worker or eye-protection check.'
  }[activity]||'Activity could not be identified. Show the work area for the next check.';
 }
-export function createLiveReview({video,start,stop,status,stage,consent,accessCode,onResult,onClear}){
+export function createLiveReview({video,start,stop,status,stage,consent,accessCode,onResult,onClear,getTask=()=>'roofing'}){
  let configured=false,socket=null,pump=null,epoch=0,inFlight=false,lastSent=0,id=0,lastResult=null;
  function end(message='Gemini Live stopped. No more camera frames are being sent.'){
  epoch++;clearInterval(pump);pump=null;inFlight=false;
@@ -26,7 +26,7 @@ export function createLiveReview({video,start,stop,status,stage,consent,accessCo
  if(!consent.checked){stage.textContent='Step 2 · Confirm upload permission';status.textContent='Confirm permission to send footage to Google before starting Gemini Live.';consent.focus();return;}
  if(!accessCode.value){stage.textContent='Step 3 · Enter session code';status.textContent='Enter the Gemini Live session code set for this app in Render.';accessCode.focus();return;}
  document.getElementById('live-scene-result').textContent='Waiting for the first Gemini observation…';onClear();lastResult=null;const code=accessCode.value;const current=++epoch;start.disabled=true;stop.hidden=false;stage.textContent='Connecting to the SiteySense server';status.textContent='Connecting to Gemini Live…';
- const ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/api/live`);socket=ws;ws.onopen=()=>{if(current===epoch){ws.send(JSON.stringify({type:'authorize',code}));accessCode.value='';}};
+ const ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/api/live`);socket=ws;ws.onopen=()=>{if(current===epoch){ws.send(JSON.stringify({type:'authorize',code,task:getTask()}));accessCode.value='';}};
  ws.onmessage=event=>{if(current!==epoch)return;let message;try{message=JSON.parse(event.data);}catch{end('Invalid Live response. No assessment is available.');return;}
  if(message.type==='connecting'){stage.textContent='Session code accepted · connecting to Google';status.textContent='Opening Gemini Live model '+message.model+'…';}
  if(message.type==='connected'){stage.textContent='Connected to Gemini Live';status.textContent=`Connected to ${message.model}. Sampled frames only; session limit ${message.sessionSeconds} seconds. Model usage may incur charges.`;pump=setInterval(sendFrame,3200);}
