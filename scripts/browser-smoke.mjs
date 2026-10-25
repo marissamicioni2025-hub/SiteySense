@@ -29,8 +29,7 @@ try{
  const report=JSON.parse(json);assert.equal(report.mode,'demo');assert.equal(report.scenarioId,'eye-unclear');
  assert.equal(report.task,'ladder');assert.equal(report.conditions.source,'simulated');
  assert.doesNotMatch(json,/base64|GEMINI_API_KEY|inlineData|data:image/);
- await page.click('#mobile-reviews');await page.locator('.saved-review').waitFor();
- await page.getByRole('button',{name:'Close saved reviews'}).click();
+ assert.equal(await page.locator('#open-reviews, #mobile-reviews, #reviews-dialog').count(),0);assert.equal(await page.evaluate(()=>localStorage.getItem('sitesense-reviews-v1')),null);
  await page.setInputFiles('#upload',{name:'site.png',mimeType:'image/png',buffer:await page.screenshot()});
  assert.equal(await page.locator('.observation').count(),0);assert.ok(await page.locator('#example-player').isHidden());
  assert.equal(await page.locator('[data-scenario][aria-pressed="true"]').count(),0);
@@ -44,17 +43,14 @@ try{
  await page.getByText('1 / 3 VERIFIED',{exact:true}).waitFor();
  await page.locator('#wind').fill('40');
  await page.locator('#briefing-text').filter({hasText:'Gusty conditions'}).waitFor();
- await page.click('#mobile-reviews');await page.locator('.saved-review').waitFor();
- await page.click('#clear-reviews');await page.locator('.empty-state').waitFor();
- await page.getByRole('button',{name:'Close saved reviews'}).click();
+ assert.equal(await page.evaluate(()=>localStorage.getItem('sitesense-reviews-v1')),null);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  const cached=await page.evaluate(async()=>{const keys=await caches.keys();const name=keys.find(k=>k.startsWith('sitesense-shell-'));if(!name)return [];const cache=await caches.open(name);return (await cache.keys()).map(request=>new URL(request.url).pathname);});
  assert.ok(cached.includes('/scenarios.js'));assert.ok(!cached.some(path=>path.startsWith('/api/')));
  await context.setOffline(false);await page.setViewportSize({width:1440,height:1100});
  await page.reload();await page.locator('.guidance-item').first().waitFor();
- await page.click('#install-app');await page.getByText('SiteySense on your device',{exact:true}).waitFor();
- await page.getByRole('button',{name:'Close installation instructions'}).click();
+ assert.equal(await page.locator('#install-app, #install-dialog').count(),0);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  assert.deepEqual(errors,[]);
- console.log('Browser smoke passed: three demos, grounded briefings, task switching, upload isolation, no-key guidance, report privacy and persistence, offline rules, cache boundaries, mobile/desktop layout and install help.');
+ console.log('Browser smoke passed: three demos, grounded briefings, task switching, upload isolation, no-key guidance, download privacy and no review storage, offline rules, cache boundaries, mobile/desktop layout and no installation prompts.');
 }finally{await browser.close();}

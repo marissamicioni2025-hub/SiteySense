@@ -204,6 +204,6 @@ $('scenario-description').textContent='Scripted examples explain the workflow. T
 $('stop-speech').onclick=()=>{if('speechSynthesis'in window)speechSynthesis.cancel();$('speech-status').textContent='Audio stopped.';};
 $('download-report').onclick=()=>{
  const report={attention:attentionFactors(state,readTaskChecks(state.task,checks[state.task])),project:'SiteySense AI',created:new Date().toISOString(),task:state.task,mode:state.mode,scenarioId:state.scenarioId||null,liveCheckedAt:state.liveCheckedAt||null,note:$('review-note').value.trim(),visualSummary,conditions:sanitizeWeatherReport(state),detections:state.detections||[],processing:state.processing||null,visionModel:state.model||null,observations:state.observations,taskLabel:getTask(state.task).label,checklist:getTask(state.task).checks,workerConfirmations:readTaskChecks(state.task,checks[state.task]),briefing,guidance:latestGuidance,limitation:'Decision support only. Not an all-clear. No injury probability, compliance certification, or comprehensive video coverage.'};
- window.dispatchEvent(new CustomEvent('sitesense:save-review',{detail:report}));
+ $('speech-status').textContent='Summary downloaded. No review history is saved in the app.';
  const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='siteysense-review.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 };

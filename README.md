@@ -4,7 +4,7 @@ A phone-friendly pre-task construction review: record a short clip, review selec
 
 ## Phone and desktop app
 
-SiteySense is now an installable PWA with a responsive desktop workspace, mobile navigation, installation help, an offline app shell, and a device-local review notebook. Use the **Install app** button on a supported HTTPS deployment. Read [phone/desktop setup and deployment](docs/PHONE-AND-DESKTOP.md). The user’s Render URL is https://siteysense.onrender.com. Its live version could not be inspected from this environment because network requests were blocked; a GitHub push is not proof that Render deployed it.
+SiteySense is now an installable PWA with a responsive desktop workspace, mobile navigation, installation help, an offline app shell, and direct summary downloads. Use the web app directly in your browser; in-app installation prompts have been removed. Read [phone/desktop setup and deployment](docs/PHONE-AND-DESKTOP.md). The user’s Render URL is https://siteysense.onrender.com. Its live version could not be inspected from this environment because network requests were blocked; a GitHub push is not proof that Render deployed it.
 
 ## Start here
 
@@ -51,7 +51,7 @@ Run `npm run test:camera` after installing the Playwright browser to repeat prev
 5. Review the timeline. Select a timestamp to seek the video. Confirmed processing traces and unconfirmed traces are labeled separately. Neither certifies complete clip coverage.
 6. Retrieve an NWS forecast for US coordinates or explore clearly labeled simulated conditions.
 7. Select **Hear my briefing** or **Stop audio**. Speech synthesis support and installed voices vary.
-8. **Save review** downloads a JSON summary containing observations, model name, source links, conditions, worker confirmations, and the briefing. It contains no footage or API key.
+8. **Download summary** exports a JSON summary containing observations, model name, source links, conditions, worker confirmations, and the briefing. It contains no footage or API key.
 
 Uploads support JPEG, PNG, WebP, MP4 and WebM. All files must be under 40 MB; agentic clips must additionally be at most **30 seconds and 14 MB**. Larger supported clips can use quick check. Some browser-recorded WebM files lack a finite duration when reuploaded; trim/export as MP4 if the app cannot read the duration.
 
@@ -118,7 +118,7 @@ Existing `sitesense-checks` and `sitesense-reviews-v1` storage keys intentionall
 
 **Open live camera** appears in the page heading and at the top of Visual assessment, above the examples and illustration. It needs HTTPS and browser camera permission, not a Gemini key. The page shows App v0.3.0; `/api/status` also exposes the app version without credentials.
 
-Render must deploy the `sitesense-app` branch. Check its latest deployment commit against GitHub. If automatic deployment did not run, choose Manual Deploy → Deploy latest commit. Changing account/deployment settings has not been performed by this update. After a successful deployment, reload the app. If an old offline shell remains open, use the update banner’s **Reload latest version**, or Install app → **Check for app updates**, then reload. An already installed app may also need to be closed and reopened. Do not clear all site data just to update if you want to preserve local reviews.
+Render must deploy the `sitesense-app` branch. Check its latest deployment commit against GitHub. If automatic deployment did not run, choose Manual Deploy → Deploy latest commit. Changing account/deployment settings has not been performed by this update. After a successful deployment, reload the app. If an old offline shell remains open, use the update banner’s **Reload latest version**, or close and reopen the page after the deployment finishes. An already installed app may also need to be closed and reopened. Do not clear all site data just to update if you want to preserve local reviews.
 
 The update banner appears when a new service worker takes control. Cache prefix and PWA identity remain stable to preserve app identity and allow old shell cleanup; public assets use a new versioned shell. APIs and uploads are never cached.
 
@@ -217,3 +217,9 @@ Eye-protection uncertainty now uses its own close-up illustration with an obscur
 The input is labeled **Gemini Live session code**, with the helper “Use the code you set in Render as SITEYSENSE_LIVE_CODE.” It is an app session code chosen by the owner, not a separate credential issued by Google. The upload-permission checkbox is now immediately above the Live controls. A pasted user page showed the flow stopped at that consent check before any Gemini connection attempt.
 
 The Live stage display distinguishes camera permission, upload permission, session-code entry, connecting to SiteySense, connecting to Google and receiving a structured result. Provider errors map to fixed diagnostic codes for authentication, model availability, permissions, quota and request configuration. Raw provider errors or credentials are never displayed. A real Google Live connection has still not been verified in this workspace; the stage/error shown after confirming consent is the next useful diagnostic.
+
+The in-app Install app button and installation dialog have been removed. The web manifest, existing installed shortcuts, offline caching and update/reload banner remain supported.
+
+## Simplified navigation — v0.4.3
+
+The Install app button/dialog and Saved reviews buttons/notebook have been removed. Download summary exports the current review directly; no new review history or notes are written to local storage. Pre-existing review storage is left untouched rather than silently deleted, but is no longer read or displayed. Checklist confirmations still persist per task. Notes remain session-only unless explicitly downloaded. Offline rules, camera controls, manifest compatibility and the update/reload banner remain available.
