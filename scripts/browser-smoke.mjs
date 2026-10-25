@@ -10,13 +10,15 @@ try{
  // No live model calls or credentials are needed by this smoke test.
  await page.route('**/api/status',route=>route.fulfill({json:{visionConfigured:false,model:'test',videoModel:'test'}}));
  await page.goto(origin);await page.getByText('Camera & task checklists',{exact:true}).waitFor();
- assert.equal(await page.locator('.observation').count(),0);await page.locator('#walkthrough summary').click();await page.click('[data-scenario="roof-edge"]');await page.locator('[data-scenario="roof-edge"][aria-pressed="true"]').waitFor();
+ assert.equal(await page.locator('.observation').count(),0);await page.locator('#walkthrough summary').click();await page.click('[data-scenario="roof-edge"]');await page.locator('[data-scenario="roof-edge"][aria-pressed="true"]').waitFor({state:'attached'});
  await page.locator('#briefing-text').filter({hasText:'suggests proximity'}).waitFor();
- await page.getByText('1 of 3',{exact:true}).waitFor();await page.click('#example-next');await page.getByText('2 of 3',{exact:true}).waitFor();await page.click('#example-next');await page.getByText('3 of 3',{exact:true}).waitFor();assert.ok(await page.locator('#example-next').isDisabled());await page.locator('#timeline button').first().click();await page.getByText('1 of 3',{exact:true}).waitFor();assert.equal(await page.locator('#timeline button:disabled').count(),0);assert.ok(!(await page.locator('#timeline').textContent()).includes('9.0s'));
- await page.click('[data-scenario="poor-light"]');
+ await page.getByText('1 of 3',{exact:true}).waitFor();await page.click('#example-next');await page.getByText('2 of 3',{exact:true}).waitFor();await page.click('#example-next');await page.getByText('3 of 3',{exact:true}).waitFor();assert.equal(await page.locator('#example-next').textContent(),'Start again ↺');await page.locator('#timeline button').first().click();await page.getByText('1 of 3',{exact:true}).waitFor();assert.equal(await page.locator('#timeline button:disabled').count(),0);assert.ok(!(await page.locator('#timeline').textContent()).includes('9.0s'));
+ const firstTransform=await page.locator('#example-worker').getAttribute('transform');await page.clock.install();await page.click('#example-play');await page.clock.runFor(4000);await page.getByText('2 of 3',{exact:true}).waitFor();assert.notEqual(await page.locator('#example-worker').getAttribute('transform'),firstTransform);await page.clock.runFor(4000);await page.getByText('3 of 3',{exact:true}).waitFor();await page.clock.runFor(4000);await page.getByText('Example complete.',{exact:false}).waitFor();await page.click('#example-next');await page.getByText('1 of 3',{exact:true}).waitFor();
+
+ await page.locator('#walkthrough').evaluate(el=>el.open=true);await page.click('[data-scenario="poor-light"]');
  await page.locator('#briefing-text').filter({hasText:'No visual hazard assessment can be made'}).waitFor();
  assert.ok(!(await page.locator('#briefing-text').textContent()).includes('suggests proximity'));
- await page.click('[data-scenario="eye-unclear"]');
+ await page.locator('#walkthrough').evaluate(el=>el.open=true);await page.click('[data-scenario="eye-unclear"]');
  await page.locator('#briefing-text').filter({hasText:'can’t verify eye protection'}).waitFor();
  await page.selectOption('#task','ladder');
  await page.locator('#briefing-text').filter({hasText:'Before ladder access'}).waitFor();
@@ -38,7 +40,7 @@ try{
  await page.evaluate(async()=>{await navigator.serviceWorker.ready;if(!navigator.serviceWorker.controller)await new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));});
  await context.setOffline(true);await page.reload();
  await page.getByText(/Offline workspace ·/).waitFor();
- await page.locator('#walkthrough').evaluate(el=>el.open=true);await page.click('[data-scenario="eye-unclear"]');await page.selectOption('#task','ladder');
+ await page.locator('#walkthrough').evaluate(el=>el.open=true);await page.locator('#walkthrough').evaluate(el=>el.open=true);await page.click('[data-scenario="eye-unclear"]');await page.selectOption('#task','ladder');
  await page.getByText('1 / 3 VERIFIED',{exact:true}).waitFor();
  await page.locator('#wind').fill('40');
  await page.locator('#briefing-text').filter({hasText:'Gusty conditions'}).waitFor();

@@ -9,7 +9,7 @@ import {sanitizeWeatherReport} from './weather-state.js';
 import {createLiveCamera} from './live-camera.js';
 import {scenarios,getScenario,walkthroughSteps} from './scenarios.js';
 const $=id=>document.getElementById(id);
-let state={task:'roofing',temperature:null,wind:null,rain:false,surfaceStatus:'unknown',observations:[],mode:'task',weatherSource:'unavailable',weatherData:null,weatherStatus:'idle'},upload=null,objectURL=null,generation=0,exampleStep=0;
+let state={task:'roofing',temperature:null,wind:null,rain:false,surfaceStatus:'unknown',observations:[],mode:'task',weatherSource:'unavailable',weatherData:null,weatherStatus:'idle'},upload=null,objectURL=null,generation=0,exampleStep=0,exampleTimer=null,examplePlaying=false;
 $('task').replaceChildren(...tasks.map(task=>{const option=document.createElement('option');option.value=task.id;option.textContent=task.label;return option;}));
 for(const scenario of scenarios){const button=document.createElement('button');button.type='button';button.dataset.scenario=scenario.id;button.innerHTML=`<strong>${scenario.title}</strong><span>${scenario.subtitle}</span>`;button.onclick=()=>demo(scenario.id);$('scenario-options').append(button);}
 for(const check of visualChecks){const p=document.createElement('p');p.className='fine';p.textContent=check.title+': '+check.canObserve+' Cannot establish: '+check.cannotEstablish;$('visual-capabilities').append(p);}
@@ -37,7 +37,7 @@ async function render(){
  $('temp-value').textContent=Number.isFinite(state.temperature)?state.temperature+'°F':'Not set';$('wind-value').textContent=Number.isFinite(state.wind)?state.wind+' mph':'Not set';
  $('timeline').replaceChildren();
  if(state.mode==='demo'){
- const steps=walkthroughSteps(getScenario(state.scenarioId));steps.forEach((step,index)=>{const button=document.createElement('button');button.textContent='Step '+(index+1);button.setAttribute('aria-pressed',String(index===exampleStep));button.onclick=()=>showExampleStep(index);$('timeline').append(button);});
+ const steps=walkthroughSteps(getScenario(state.scenarioId));steps.forEach((step,index)=>{const button=document.createElement('button');button.textContent='Step '+(index+1);button.setAttribute('aria-pressed',String(index===exampleStep));button.onclick=()=>{stopExamplePlayback();showExampleStep(index);$('example-player').scrollIntoView({behavior:'smooth',block:'center'});};$('timeline').append(button);});
  }else for(const time of [...new Set((state.detections||[]).map(d=>d.time))]){
  const button=document.createElement('button');button.textContent=time.toFixed(1)+'s';button.type='button';button.title='Jump to reviewed moment';button.disabled=$('video').hidden;
  button.onclick=()=>{$('video').currentTime=time;$('video').scrollIntoView({behavior:'smooth',block:'center'});};$('timeline').append(button);
@@ -92,9 +92,9 @@ $('task').onchange=()=>{state.task=$('task').value;$('review-note').value='';$('
 for(const id of ['temp','wind','rain'])$(id).oninput=()=>{state.temperature=Number($('temp').value);state.wind=Number($('wind').value);state.rain=$('rain').checked;weatherControls.simulationChanged();render();};
 $('surface-status').onchange=()=>{state.surfaceStatus=$('surface-status').value;render();};
 
-function clearMedia(){delete state.liveCheckedAt;liveCamera.stop();stopCamera();recordedDuration=null;$('coverage').hidden=true;$('coverage').textContent='';if(objectURL)URL.revokeObjectURL(objectURL);objectURL=null;upload=null;$('upload').value='';$('video').pause();$('video').removeAttribute('src');$('video').load();$('photo').removeAttribute('src');$('video').hidden=true;$('photo').hidden=true;}
+function clearMedia(){stopExamplePlayback();delete state.liveCheckedAt;liveCamera.stop();stopCamera();recordedDuration=null;$('coverage').hidden=true;$('coverage').textContent='';if(objectURL)URL.revokeObjectURL(objectURL);objectURL=null;upload=null;$('upload').value='';$('video').pause();$('video').removeAttribute('src');$('video').load();$('photo').removeAttribute('src');$('video').hidden=true;$('photo').hidden=true;}
 function demo(id='roof-edge'){
- const scenario=getScenario(id);exampleStep=0;$('example-player').hidden=false;$('walkthrough').open=true;clearMedia();state.mode='demo';state.scenarioId=id;state.detections=scenario.detections;state.observations=scenario.observations;delete state.processing;delete state.model;
+ const scenario=getScenario(id);exampleStep=0;$('example-player').hidden=false;$('walkthrough').open=false;clearMedia();state.mode='demo';state.scenarioId=id;state.detections=scenario.detections;state.observations=scenario.observations;delete state.processing;delete state.model;
  $('illustration').toggleAttribute('hidden',false);$('illustration').style.filter=scenario.dim?'brightness(.15) blur(4px)':'';
  $('scene-note').hidden=scenario.dim;$('scene-note').replaceChildren();const title=document.createElement('span');title.textContent=scenario.title;const small=document.createElement('small');small.textContent='Illustrated walkthrough';$('scene-note').append(title,small);
  visualSummary=scenario.summary;$('scene-label').textContent='ILLUSTRATION · SCRIPTED EXAMPLE';$('mode-badge').textContent='SCRIPTED EXAMPLE';
@@ -103,16 +103,31 @@ function demo(id='roof-edge'){
  for(const button of $('scenario-options').children)button.setAttribute('aria-pressed',String(button.dataset.scenario===id));
  showExampleStep(0);
  render();
+ $('example-player').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});
+ $('example-step-title').focus({preventScroll:true});
 }
 function showExampleStep(index){
  if(state.mode!=='demo')return;
  const steps=walkthroughSteps(getScenario(state.scenarioId));exampleStep=Math.max(0,Math.min(steps.length-1,index));
  $('example-step-title').textContent=steps[exampleStep].title;$('example-step-body').textContent=steps[exampleStep].body;$('example-step-count').textContent=(exampleStep+1)+' of '+steps.length;
- $('example-prev').disabled=exampleStep===0;$('example-next').disabled=exampleStep===steps.length-1;
+ $('example-prev').disabled=exampleStep===0;$('example-next').disabled=false;$('example-next').textContent=exampleStep===steps.length-1?'Start again ↺':'Next →';
  for(const [i,button] of [...$('timeline').children].entries())button.setAttribute('aria-pressed',String(i===exampleStep));
+ $('example-worker').setAttribute('transform','translate('+([-65,55,-15][exampleStep])+',0)');$('example-worker').style.opacity=state.scenarioId==='eye-unclear'&&exampleStep===1?'.5':'1';
+ $('scene-label').textContent='ILLUSTRATED EXAMPLE · STEP '+(exampleStep+1)+' OF '+steps.length;
  $('scene-note').querySelector('small')?.replaceChildren(document.createTextNode('Walkthrough step '+(exampleStep+1)+' of '+steps.length));
 }
-$('example-prev').onclick=()=>showExampleStep(exampleStep-1);$('example-next').onclick=()=>showExampleStep(exampleStep+1);
+function stopExamplePlayback(){if(exampleTimer)clearInterval(exampleTimer);exampleTimer=null;examplePlaying=false;$('example-play').textContent='▶ Play example';$('example-play-status').textContent='Click Next to explore each step.';}
+$('example-prev').onclick=()=>{stopExamplePlayback();showExampleStep(exampleStep-1);};
+$('example-next').onclick=()=>{stopExamplePlayback();showExampleStep(exampleStep===2?0:exampleStep+1);};
+$('example-play').onclick=()=>{
+ if(examplePlaying){stopExamplePlayback();return;}
+ if(state.mode!=='demo')return;
+ if(exampleStep===2)showExampleStep(0);
+ examplePlaying=true;$('example-play').textContent='Ⅱ Pause example';$('example-play-status').textContent='Playing illustrated steps · four seconds each.';
+ exampleTimer=setInterval(()=>{if(exampleStep>=2){stopExamplePlayback();$('example-play-status').textContent='Example complete. Choose Start again or Play example to replay.';return;}showExampleStep(exampleStep+1);},4000);
+};
+$('example-change').onclick=()=>{stopExamplePlayback();$('walkthrough').open=true;$('scenario-options').scrollIntoView({behavior:'smooth',block:'center'});$('scenario-options').querySelector('button').focus({preventScroll:true});};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stopExamplePlayback();});
 $('demo').onclick=()=>demo();$('dim').onclick=()=>demo('poor-light');
 function clearScenarioSelection(){$('example-player').hidden=true;delete state.scenarioId;for(const button of $('scenario-options').children)button.setAttribute('aria-pressed','false');$('scenario-description').textContent='Your upload is separate from the scripted scenarios. Choose an example above to return to the illustrated walkthrough.';}
 function selectFile(file,duration=null){
@@ -155,7 +170,7 @@ window.addEventListener('pagehide',stopCamera);
 
 async function ready(el,event){if(el instanceof HTMLVideoElement?el.readyState>=2:el.complete&&el.naturalWidth)return;await new Promise((resolve,reject)=>{const timer=setTimeout(()=>{cleanup();reject(Error('Media could not be loaded. Try a different file.'));},12000);const cleanup=()=>{clearTimeout(timer);el.removeEventListener(event,ok);el.removeEventListener('error',bad);};const ok=()=>{cleanup();resolve();};const bad=()=>{cleanup();reject(Error('Media could not be decoded.'));};el.addEventListener(event,ok,{once:true});el.addEventListener('error',bad,{once:true});});}
 async function frames(){const canvas=document.createElement('canvas');const context=canvas.getContext('2d');const isVideo=upload.type.startsWith('video');const el=isVideo?$('video'):$('photo');await ready(el,isVideo?'loadeddata':'load');const duration=recordedDuration||el.duration;if(isVideo&&(!Number.isFinite(duration)||duration>30))throw Error('Choose a clip of 30 seconds or less.');const width=isVideo?el.videoWidth:el.naturalWidth,height=isVideo?el.videoHeight:el.naturalHeight;canvas.width=Math.min(width,960);canvas.height=Math.round(height*canvas.width/width);const times=isVideo?[0.1,0.33,0.66,0.95].map(f=>Math.round(duration*f*100)/100):[0];const samples=[];for(const time of times){if(isVideo){el.pause();if(Math.abs(el.currentTime-time)>.01)await new Promise((resolve,reject)=>{const timer=setTimeout(()=>{el.removeEventListener('seeked',done);reject(Error('Could not sample video.'));},7000);const done=()=>{clearTimeout(timer);resolve();};el.addEventListener('seeked',done,{once:true});el.currentTime=time;});}context.drawImage(el,0,0,canvas.width,canvas.height);samples.push({time,image:canvas.toDataURL('image/jpeg',.8)});}return samples;}
-function setBusy(busy){for(const id of ['analyze','upload','phone-photo','demo','dim','record','capture-photo','review-mode','live-open','camera-shortcut','new-task','reset'])$(id).disabled=busy;for(const button of $('scenario-options').children)button.disabled=busy;}
+function setBusy(busy){for(const id of ['analyze','upload','phone-photo','demo','dim','record','capture-photo','review-mode','live-open','camera-shortcut','new-task','reset','example-play','example-prev','example-next','example-change'])$(id).disabled=busy;for(const button of $('scenario-options').children)button.disabled=busy;}
 async function videoPayload(){
  const el=$('video');await ready(el,'loadeddata');const duration=recordedDuration||el.duration;
  if(!Number.isFinite(duration)||duration<=0||duration>30)throw Error('Choose a clip of 30 seconds or less.');

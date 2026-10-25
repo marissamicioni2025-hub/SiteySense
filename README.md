@@ -203,3 +203,9 @@ The Node SDK’s Live socket needs outbound secure WebSocket access to `generati
 `npm test` tests the actual relay using an injected mock provider, including authentication, origin restrictions, session limits, structured validation, timeouts and cleanup. With the server running, `npm run test:live` tests the browser flow with fake camera media and a mocked provider WebSocket. These tests do not establish a successful real Gemini connection.
 
 For the first real session, use a permitted, clear view in a controlled setting. Confirm that a new timestamped result appears, uncertainty is reported when the view is unclear, and Stop AI review stops sending frames. Record actual latency, false positives and missed observations; do not invent results. Save model identifier and dated release evidence for the submission.
+
+## Example playback update — v0.4.1
+
+Choosing an example now collapses the chooser and brings the walkthrough into view. Previous/Next changes the explanation and the worker illustration; the last step offers Start again. Play example advances the three illustrated steps at four seconds each, with pause/replay and reduced-motion support. It is not a video recording, model response or analysis of the user's camera. Switching to a camera/upload or backgrounding stops playback. This behavior is tested in `npm run test:browser` with a controlled browser clock.
+
+A GitHub rename to `siteysense` was requested, but the repository API returned Forbidden in this workspace. No rename has been performed. The owner can use GitHub → repository Settings → Repository name → siteysense. Update Git remotes and any hosting source URL after confirming the rename; do not create a duplicate repository or reset history.
